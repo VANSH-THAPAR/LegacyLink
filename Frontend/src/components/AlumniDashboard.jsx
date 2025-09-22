@@ -192,12 +192,90 @@ const Header = ({ alumni, setActivePage, handleLogout }) => {
 // --- ALUMNI-FACING PAGE COMPONENTS ---
 // **CORRECTION**: Moved all page components outside the main AlumniDashboard component
 
-const AlumniDashboardPage = ({ alumni = {} }) => {
+const AlumniDashboardPage = ({ alumni = {}, setActivePage }) => {
     // Set default values if properties are missing
     const menteesCount = alumni.mentees || 0;
     const connectionsCount = alumni.connections || 0;
     const profileViewsCount = alumni.profileViews || 0;
-    const profileCompletion = alumni.profileCompletion || 0;
+    
+    // Calculate actual profile completion percentage
+    const calculateProfileCompletion = (user) => {
+        const requiredFields = [
+            'name',
+            'email', 
+            'position',
+            'company',
+            'location',
+            'about',
+            'bio',
+            'graduatingYear',
+            'collegeName',
+            'universityName'
+        ];
+        
+        const optionalFields = [
+            'profilePicture',
+            'imageUrl',
+            'linkedin',
+            'skills',
+            'careerTimeline',
+            'industry',
+            'mentorshipAreas'
+        ];
+        
+        let completedRequired = 0;
+        let completedOptional = 0;
+        
+        // Check required fields (70% weight)
+        requiredFields.forEach(field => {
+            if (user[field] && user[field].toString().trim() !== '') {
+                completedRequired++;
+            }
+        });
+        
+        // Check optional fields (30% weight)
+        optionalFields.forEach(field => {
+            if (user[field]) {
+                if (Array.isArray(user[field]) && user[field].length > 0) {
+                    completedOptional++;
+                } else if (user[field].toString().trim() !== '') {
+                    completedOptional++;
+                }
+            }
+        });
+        
+        // Calculate weighted completion percentage
+        const requiredPercentage = (completedRequired / requiredFields.length) * 70;
+        const optionalPercentage = (completedOptional / optionalFields.length) * 30;
+        
+        return Math.round(requiredPercentage + optionalPercentage);
+    };
+    
+    // Get missing fields for helpful suggestions
+    const getMissingFields = (user) => {
+        const importantFields = [
+            { key: 'about', label: 'About/Bio' },
+            { key: 'bio', label: 'Bio' },
+            { key: 'linkedin', label: 'LinkedIn Profile' },
+            { key: 'skills', label: 'Skills' },
+            { key: 'careerTimeline', label: 'Career Timeline' },
+            { key: 'industry', label: 'Industry' },
+            { key: 'profilePicture', label: 'Profile Picture' },
+            { key: 'imageUrl', label: 'Profile Picture' }
+        ];
+        
+        const missing = importantFields.filter(field => {
+            if (!user[field.key]) return true;
+            if (Array.isArray(user[field.key]) && user[field.key].length === 0) return true;
+            if (user[field.key].toString().trim() === '') return true;
+            return false;
+        });
+        
+        return missing.slice(0, 3); // Show only top 3 missing fields
+    };
+    
+    const profileCompletion = calculateProfileCompletion(alumni);
+    const missingFields = getMissingFields(alumni);
     
     return (
         <motion.div 
@@ -269,19 +347,7 @@ const AlumniDashboardPage = ({ alumni = {} }) => {
                     <h3 className="text-xl font-bold text-slate-800">Profile Completion</h3>
                     <ResponsiveContainer width="100%" height={150}>
                         <PieChart>
-                            <Pie 
-                                data={[{name: 'Completed', value: profileCompletion}]} 
-                                dataKey="value" 
-                                cx="50%" 
-                                cy="50%" 
-                                innerRadius={50} 
-                                outerRadius={60} 
-                                startAngle={90} 
-                                endAngle={450} 
-                                cornerRadius={50}
-                            >
-                                <Cell fill="#0891b2"/>
-                            </Pie>
+                            {/* Background circle (full circle) */}
                             <Pie 
                                 data={[{name: 'Background', value: 100}]} 
                                 dataKey="value" 
@@ -289,11 +355,31 @@ const AlumniDashboardPage = ({ alumni = {} }) => {
                                 cy="50%" 
                                 innerRadius={50} 
                                 outerRadius={60} 
-                                startAngle={90} 
-                                endAngle={450} 
+                                startAngle={0} 
+                                endAngle={360} 
                                 fill="#e2e8f0" 
                                 isAnimationActive={false}
                             />
+                            {/* Progress circle (colored based on completion) */}
+                            <Pie 
+                                data={[{name: 'Completed', value: profileCompletion}]} 
+                                dataKey="value" 
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={50} 
+                                outerRadius={60} 
+                                startAngle={-90} 
+                                endAngle={-90 + (profileCompletion * 3.6)} 
+                                cornerRadius={6}
+                                animationDuration={800}
+                            >
+                                <Cell fill={
+                                    profileCompletion >= 80 ? "#10b981" : // Green for 80%+
+                                    profileCompletion >= 60 ? "#0891b2" : // Cyan for 60-79%
+                                    profileCompletion >= 40 ? "#f59e0b" : // Yellow for 40-59%
+                                    "#ef4444" // Red for <40%
+                                }/>
+                            </Pie>
                             <text 
                                 x="50%" 
                                 y="50%" 
@@ -305,8 +391,28 @@ const AlumniDashboardPage = ({ alumni = {} }) => {
                             </text>
                         </PieChart>
                     </ResponsiveContainer>
-                    <button className="w-full text-center mt-2 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 transition-colors text-sm">
-                        Complete Profile
+                    {profileCompletion < 100 && missingFields.length > 0 && (
+                        <div className="mt-3 text-left">
+                            <p className="text-xs text-slate-500 mb-2">Missing:</p>
+                            <div className="space-y-1">
+                                {missingFields.map((field, index) => (
+                                    <div key={index} className="text-xs text-slate-600 flex items-center gap-1">
+                                        <div className="w-1 h-1 bg-slate-400 rounded-full"></div>
+                                        {field.label}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    <button 
+                        onClick={() => setActivePage && setActivePage('Profile')}
+                        className={`w-full text-center mt-3 p-2 rounded-lg font-semibold text-sm transition-colors ${
+                            profileCompletion === 100 
+                                ? 'bg-green-100 text-green-700 cursor-default' 
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        }`}
+                    >
+                        {profileCompletion === 100 ? '✓ Profile Complete' : 'Complete Profile'}
                     </button>
                 </motion.div>
                 <motion.div 
@@ -843,12 +949,12 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
 
     const renderPage = () => {
         switch (activePage) {
-            case 'Dashboard': return <AlumniDashboardPage alumni={user} />;
+            case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
             case 'Messages': return <MessagesPage />;
             case 'Network': return <NetworkPageWithBackend user={user} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
-            default: return <AlumniDashboardPage alumni={user} />;
+            default: return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
         }
     };
 

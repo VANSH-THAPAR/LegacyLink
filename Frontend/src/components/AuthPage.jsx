@@ -137,7 +137,7 @@ const SignupFields = ({ role, formData, onFileChange, onInputChange, fileInputRe
                 <InputField name="email" type="email" placeholder="College Email" Icon={Mail} onChange={onInputChange} required />
                 <InputField name="collegeName" type="text" placeholder="College Name" Icon={Building} onChange={onInputChange} required />
                 <InputField name="rollNumber" type="text" placeholder="College Roll Number" Icon={Hash} onChange={onInputChange} required />
-                <InputField name="graduatingYear" type="number" placeholder="Graduating Year" Icon={GraduationCap} onChange={onInputChange} required />
+                <YearField name="graduatingYear" placeholder="Graduating Year" Icon={GraduationCap} onChange={onInputChange} required />
             </>
         )}
         <InputField name="password" type="password" placeholder="Password" Icon={Lock} onChange={onInputChange} required />
@@ -150,5 +150,44 @@ const InputField = ({ name, type, placeholder, Icon, onChange, required }) => (
         <input type={type} name={name} placeholder={placeholder} onChange={onChange} required={required} className="w-full block pl-12 pr-3 py-3 border border-slate-300 rounded-lg bg-slate-50"/>
     </div>
 );
+
+const YearField = ({ name, placeholder, Icon, onChange, required }) => {
+    const currentYear = new Date().getFullYear();
+    
+    // Generate years from 1950 to current year + 6 (for alumni from any era)
+    const years = [];
+    for (let year = 1950; year <= currentYear + 6; year++) {
+        years.push(year);
+    }
+    
+    return (
+        <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none z-10">
+                <Icon className="h-5 w-5 text-slate-400" />
+            </span>
+            <select 
+                name={name} 
+                onChange={onChange} 
+                required={required} 
+                className="w-full block pl-12 pr-3 py-3 border border-slate-300 rounded-lg bg-slate-50 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                defaultValue=""
+            >
+                <option value="" disabled className="text-slate-400">
+                    {placeholder}
+                </option>
+                {years.reverse().map(year => (
+                    <option key={year} value={year} className="text-slate-700">
+                        {year}
+                    </option>
+                ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+        </div>
+    );
+};
 
 export default AuthPage;
