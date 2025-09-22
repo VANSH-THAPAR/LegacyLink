@@ -38,7 +38,51 @@ const messages = [
     { id: 1, sender: 'Aditya Verma', student: true, text: "Hi Rohan, thanks for agreeing to mentor me. I've shared my resume in your email.", time: '10:45 AM', unread: true, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026711d' },
     { id: 2, sender: 'Priya Sharma', student: false, text: "Hey! Great connecting with you. Let's catch up sometime next week.", time: 'Yesterday', unread: false, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
     { id: 3, sender: 'Meera Nair', student: true, text: "The session on business administration was really insightful. Thank you!", time: 'Wednesday', unread: false, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026712d' },
+    { id: 4, sender: 'Rahul Singh', student: true, text: "Could you help me with my product management interview preparation?", time: '2 days ago', unread: false, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026713d' },
+    { id: 5, sender: 'Ananya Iyer', student: false, text: "Thanks for the LinkedIn recommendation! It really helped.", time: '3 days ago', unread: false, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026706d' },
+    { id: 6, sender: 'Karthik Reddy', student: true, text: "Hi! I'm interested in transitioning to product management. Can we schedule a call?", time: '1 week ago', unread: false, imageUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026714d' },
 ];
+
+// Detailed conversation data for each contact
+const conversationsData = {
+    1: [
+        { sender: "them", text: "Hi Rohan, thanks for agreeing to mentor me. I've shared my resume in your email.", timestamp: "10:30 AM" },
+        { sender: "me", text: "Hi Aditya! I've received your resume. It looks great! Let's schedule a call this week to discuss your career goals.", timestamp: "10:45 AM" },
+        { sender: "them", text: "That would be amazing! I'm free Tuesday or Wednesday evening. What works for you?", timestamp: "10:47 AM" },
+        { sender: "me", text: "Wednesday at 6 PM works perfectly. I'll send you a calendar invite.", timestamp: "10:50 AM" },
+        { sender: "them", text: "Perfect! Looking forward to it. Should I prepare anything specific for our discussion?", timestamp: "10:52 AM" },
+        { sender: "me", text: "Just think about your short-term and long-term career goals. We'll discuss how to get there!", timestamp: "10:55 AM" },
+    ],
+    2: [
+        { sender: "them", text: "Hey! Great connecting with you. Let's catch up sometime next week.", timestamp: "Yesterday 3:20 PM" },
+        { sender: "me", text: "Absolutely! It was great meeting you at the alumni event. How about coffee on Friday?", timestamp: "Yesterday 4:15 PM" },
+        { sender: "them", text: "Friday sounds perfect! There's a nice café near my office. I'll share the location.", timestamp: "Yesterday 4:30 PM" },
+    ],
+    3: [
+        { sender: "them", text: "The session on business administration was really insightful. Thank you!", timestamp: "Wednesday 2:15 PM" },
+        { sender: "me", text: "I'm so glad you found it helpful, Meera! Feel free to reach out if you have any follow-up questions.", timestamp: "Wednesday 2:45 PM" },
+        { sender: "them", text: "I do have a question about market research methodologies. Could we discuss it briefly?", timestamp: "Wednesday 3:00 PM" },
+        { sender: "me", text: "Of course! Market research is crucial for product success. What specific aspect are you curious about?", timestamp: "Wednesday 3:10 PM" },
+    ],
+    4: [
+        { sender: "them", text: "Could you help me with my product management interview preparation?", timestamp: "2 days ago" },
+        { sender: "me", text: "Absolutely, Rahul! I'd be happy to help. What company are you interviewing with?", timestamp: "2 days ago" },
+        { sender: "them", text: "It's with Flipkart for an APM role. I'm particularly nervous about the case study round.", timestamp: "2 days ago" },
+        { sender: "me", text: "Great choice! Case studies are all about structured thinking. Let's do a mock interview this weekend.", timestamp: "2 days ago" },
+    ],
+    5: [
+        { sender: "them", text: "Thanks for the LinkedIn recommendation! It really helped.", timestamp: "3 days ago" },
+        { sender: "me", text: "You're very welcome, Ananya! You deserved every word of it. How did the interview go?", timestamp: "3 days ago" },
+        { sender: "them", text: "I got the job! Starting as a Senior Data Scientist at Amazon next month!", timestamp: "3 days ago" },
+        { sender: "me", text: "That's fantastic news! Congratulations! Amazon is lucky to have you.", timestamp: "3 days ago" },
+    ],
+    6: [
+        { sender: "them", text: "Hi! I'm interested in transitioning to product management. Can we schedule a call?", timestamp: "1 week ago" },
+        { sender: "me", text: "Hi Karthik! I'd love to help with your transition. What's your current background?", timestamp: "1 week ago" },
+        { sender: "them", text: "I'm currently a software engineer with 3 years of experience. I want to move to the business side.", timestamp: "1 week ago" },
+        { sender: "me", text: "That's a great foundation! Your technical background will be a huge asset in PM. Let's chat next week.", timestamp: "1 week ago" },
+    ],
+};
 
 const eventInvitations = [
     { id: 1, title: 'Annual Tech Summit 2025', role: 'Keynote Speaker', date: 'Oct 20, 2025', status: 'Pending' },
@@ -79,7 +123,7 @@ const SidebarLink = ({ icon: Icon, text, active, onClick }) => (
   </motion.button>
 );
 
-const Header = ({ alumni, setActivePage }) => {
+const Header = ({ alumni, setActivePage, handleLogout }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -135,7 +179,7 @@ const Header = ({ alumni, setActivePage }) => {
                         </div>
                         <button onClick={() => { setActivePage('Profile'); setDropdownOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700"><User size={16}/> View Profile</button>
                         <button onClick={() => setDropdownOpen(false)} className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700"><Settings size={16}/> Settings</button>
-                        <button onClick={() => setDropdownOpen(false)} className="w-full text-left flex items-center gap-3 px-3 py-2 mt-2 border-t border-slate-100 text-red-500 hover:bg-red-50"><LogOut size={16}/> Logout</button>
+                        <button onClick={() => { handleLogout(); setDropdownOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2 mt-2 border-t border-slate-100 text-red-500 hover:bg-red-50"><LogOut size={16}/> Logout</button>
                     </motion.div>
                 )}
                 </AnimatePresence>
@@ -304,25 +348,56 @@ const AlumniDashboardPage = ({ alumni = {} }) => {
 
 const MessagesPage = () => {
     const [selectedMsg, setSelectedMsg] = useState(messages[0]);
+    const [conversations, setConversations] = useState(conversationsData);
+    const [input, setInput] = useState("");
+    const messagesEndRef = useRef(null);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [conversations, selectedMsg]);
+
+    const activeConversation = conversations[selectedMsg.id] || [];
+
+    const handleSend = () => {
+        if (input.trim()) {
+            const newMessage = {
+                sender: "me",
+                text: input.trim(),
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            
+            setConversations(prev => ({
+                ...prev,
+                [selectedMsg.id]: [...(prev[selectedMsg.id] || []), newMessage]
+            }));
+            setInput("");
+        }
+    };
+
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex h-[calc(100vh-10rem)] bg-white rounded-2xl border border-slate-200 shadow-sm">
             <div className="w-1/3 border-r border-slate-200 flex flex-col">
                 <div className="p-4 border-b border-slate-200">
                     <h3 className="text-xl font-bold text-slate-800">Inbox</h3>
+                    <p className="text-sm text-slate-500 mt-1">{messages.length} conversations</p>
                 </div>
                 <div className="p-2 overflow-y-auto">
                     {messages.map(msg => (
                         <motion.button key={msg.id} onClick={() => setSelectedMsg(msg)} 
-                            className={`w-full text-left p-4 rounded-xl flex items-center gap-4 transition-colors ${selectedMsg.id === msg.id ? 'bg-cyan-50' : 'hover:bg-slate-50'}`}
+                            className={`w-full text-left p-4 rounded-xl flex items-center gap-4 transition-colors ${selectedMsg.id === msg.id ? 'bg-cyan-50 border border-cyan-200' : 'hover:bg-slate-50'}`}
                             whileHover={{ scale: 1.02 }}
                         >
-                            <img src={msg.imageUrl} className="w-12 h-12 rounded-full flex-shrink-0" alt={msg.sender}/>
+                            <div className="relative">
+                                <img src={msg.imageUrl} className="w-12 h-12 rounded-full flex-shrink-0 object-cover" alt={msg.sender}/>
+                                {msg.unread && <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-500 rounded-full"></div>}
+                            </div>
                             <div className="flex-grow overflow-hidden">
                                 <div className="flex justify-between items-center">
                                     <p className="font-bold text-slate-800 truncate">{msg.sender}</p>
                                     <p className="text-xs text-slate-400 flex-shrink-0">{msg.time}</p>
                                 </div>
                                 <p className={`text-sm truncate ${msg.unread ? 'font-bold text-slate-700' : 'text-slate-500'}`}>{msg.text}</p>
+                                {msg.student && <span className="inline-block mt-1 text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">Student</span>}
                             </div>
                         </motion.button>
                     ))}
@@ -331,7 +406,7 @@ const MessagesPage = () => {
             <div className="w-2/3 flex flex-col">
                 <div className="p-4 border-b border-slate-200 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <img src={selectedMsg.imageUrl} className="w-10 h-10 rounded-full" alt={selectedMsg.sender}/>
+                        <img src={selectedMsg.imageUrl} className="w-10 h-10 rounded-full object-cover" alt={selectedMsg.sender}/>
                         <div>
                             <h4 className="font-bold text-slate-800 text-lg truncate">{selectedMsg.sender}</h4>
                             {selectedMsg.student && <p className="text-xs text-cyan-600 font-semibold">Student Mentee</p>}
@@ -339,14 +414,40 @@ const MessagesPage = () => {
                     </div>
                     <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"><MoreVertical /></button>
                 </div>
-                <div className="flex-grow p-6 text-slate-700 bg-slate-50/50 overflow-y-auto">
-                    <p className="bg-white p-3 rounded-lg w-fit break-words">{selectedMsg.text}</p>
+                <div className="flex-grow p-6 bg-slate-50/50 overflow-y-auto space-y-4">
+                    {activeConversation.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.sender === "me" ? "justify-end" : "justify-start"}`}>
+                            <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl break-words ${
+                                msg.sender === "me" 
+                                    ? "bg-cyan-500 text-white" 
+                                    : "bg-white text-slate-700 border border-slate-200"
+                            }`}>
+                                <p>{msg.text}</p>
+                                <p className={`text-xs mt-1 ${msg.sender === "me" ? "text-cyan-100" : "text-slate-400"}`}>
+                                    {msg.timestamp}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                    <div ref={messagesEndRef} />
                 </div>
                 <div className="p-4 bg-white border-t border-slate-200 flex items-center gap-3">
                     <button className="p-3 text-slate-500 hover:bg-slate-100 rounded-full"><Paperclip/></button>
                     <button className="p-3 text-slate-500 hover:bg-slate-100 rounded-full"><Smile/></button>
-                    <input type="text" placeholder={`Message ${selectedMsg.sender}...`} className="w-full bg-slate-100 border-transparent rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
-                    <button className="p-3 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition-transform hover:scale-110"><Send/></button>
+                    <input 
+                        type="text" 
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                        placeholder={`Message ${selectedMsg.sender}...`} 
+                        className="w-full bg-slate-100 border-transparent rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                    <button 
+                        onClick={handleSend}
+                        className="p-3 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition-transform hover:scale-110"
+                    >
+                        <Send/>
+                    </button>
                 </div>
             </div>
         </motion.div>
@@ -743,7 +844,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
     const renderPage = () => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} />;
-            case 'Messages': return <MessagesPageWithBackend user={user} />;
+            case 'Messages': return <MessagesPage />;
             case 'Network': return <NetworkPageWithBackend user={user} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
@@ -785,7 +886,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
             </aside>
 
             <main className="flex-1 p-8 overflow-y-auto">
-                 <Header alumni={user} setActivePage={setActivePage} />
+                 <Header alumni={user} setActivePage={setActivePage} handleLogout={handleLogout} />
                  <div className="mt-8">
                      <AnimatePresence mode="wait">
                          <motion.div
