@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./db/connectDB'); // Assuming you have this file
+const compressionMiddleware = require('./middleware/compression');
+const performanceMiddleware = require('./middleware/performance');
 
 // --- Environment Variable Check ---
 if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
@@ -15,8 +17,15 @@ connectDB();
 const app = express();
 
 // --- Middleware ---
+// Performance monitoring (should be first)
+app.use(performanceMiddleware);
+
+// Compression for better network performance
+app.use(compressionMiddleware);
+
 // Use cors before defining routes
 app.use(cors()); 
+
 // Increase limit for base64 image uploads
 app.use(express.json({ limit: '10mb' })); 
 

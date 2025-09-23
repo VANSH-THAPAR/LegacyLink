@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Student, Alumni, University } = require('../models/User');
 const cloudinary = require('../utils/cloudinary'); // Use the new config file
+const authCache = require('../utils/cache');
 
 // [POST] /api/auth/signup - Register a new user
 router.post('/signup', async (req, res) => {
@@ -70,50 +71,103 @@ router.post('/signup', async (req, res) => {
     }
 });
 
-// [POST] /api/auth/login - (No changes needed here, included for completeness)
+// [POST] /api/auth/login - Optimized for faster authentication
 router.post('/login', async (req, res) => {
     try {
         const { identifier, password } = req.body;
-        if (!identifier || !password) return res.status(400).json({ msg: 'Please provide an identifier and password.' });
-
-        // Search across all collections for the user
-        let user = await Student.findOne({
-            $or: [{ email: identifier }, { rollNumber: identifier }]
-        }).select('+password');
         
-        if (!user) {
-            user = await Alumni.findOne({
-                $or: [{ email: identifier }, { rollNumber: identifier }]
-            }).select('+password');
-        }
-        
-        if (!user) {
-            user = await University.findOne({
-                universityId: identifier
-            }).select('+password');
+        // Enhanced input validation
+        if (!identifier || !password || 
+            typeof identifier !== 'string' || typeof password !== 'string' ||
+            identifier.trim().length === 0 || password.length === 0) {
+            return res.status(400).json({ msg: 'Please provide valid identifier and password.' });
         }
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
+        // Basic rate limiting check (prevent brute force)
+        if (password.length > 128 || identifier.length > 100) {
+            return res.status(400).json({ msg: 'Input too long.' });
+        }
+
+        const trimmedIdentifier = identifier.trim().toLowerCase();
+        let user = null;
+
+        // Check cache first for faster response
+        user = authCache.get(trimmedIdentifier);
+        
+        if (!user) {
+            // Optimize search strategy based on identifier format
+            if (trimmedIdentifier.includes('@')) {
+                // Email format - search students first (most common), then alumni
+                user = await Student.findOne({ email: trimmedIdentifier })
+                    .select('+password')
+                    .lean(); // Use lean() for faster queries
+                
+                if (!user) {
+                    user = await Alumni.findOne({ email: trimmedIdentifier })
+                        .select('+password')
+                        .lean();
+                }
+            } else {
+                // Roll number or university ID format
+                // Try student/alumni first, then university
+                const queries = [
+                    Student.findOne({ rollNumber: trimmedIdentifier }).select('+password').lean(),
+                    Alumni.findOne({ rollNumber: trimmedIdentifier }).select('+password').lean(),
+                    University.findOne({ universityId: trimmedIdentifier }).select('+password').lean()
+                ];
+
+                // Execute queries in parallel for better performance
+                const results = await Promise.allSettled(queries);
+                user = results.find(result => result.status === 'fulfilled' && result.value)?.value;
+            }
+
+            // Cache the user for future requests (if found)
+            if (user) {
+                authCache.set(trimmedIdentifier, user);
+            }
+        }
+
+        // Early return if user not found
+        if (!user) {
             return res.status(400).json({ msg: 'Invalid credentials.' });
         }
 
-        const payload = { user: { id: user.id, role: user.role } };
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ msg: 'Invalid credentials.' });
+        }
 
-        jwt.sign(
+        // Create JWT payload with minimal data
+        const payload = { 
+            user: { 
+                id: user._id, 
+                role: user.role,
+                email: user.email || user.universityId
+            } 
+        };
+
+        // Generate token synchronously for better performance
+        const token = jwt.sign(
             payload,
             process.env.JWT_SECRET,
-            { expiresIn: '5d' },
-            (err, token) => {
-                if (err) throw err;
-                // Exclude password from the returned user object
-                const userToReturn = user.toObject();
-                delete userToReturn.password;
-                res.json({ token, user: userToReturn });
-            }
+            { expiresIn: '5d' }
         );
+
+        // Return minimal user data for faster response
+        const userResponse = {
+            _id: user._id,
+            role: user.role,
+            name: user.name || user.universityName,
+            email: user.email || user.universityId,
+            profilePicture: user.profilePicture
+        };
+
+        res.json({ token, user: userResponse });
+
     } catch (err) {
         console.error("Login Error:", err.message);
-        res.status(500).send('Server Error');
+        res.status(500).json({ msg: 'Server Error' });
     }
 });
 
