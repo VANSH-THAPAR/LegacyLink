@@ -1642,145 +1642,234 @@ const SupportPage = ({ user }) => {
 
   };
 
-  const handleSend = async (messageText = input) => {
+//   const handleSend = async (messageText = input) => {
 
-    if (!messageText.trim() || isLoading) return;
+//     if (!messageText.trim() || isLoading) return;
 
-    const userMessage = { role: "user", text: messageText };
+//     const userMessage = { role: "user", text: messageText };
 
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
+//     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
-    setInput("");
+//     setInput("");
 
-    setIsLoading(true);
+//     setIsLoading(true);
 
-    if (predefinedPrompts[messageText]) {
+//     if (predefinedPrompts[messageText]) {
 
-      setTimeout(() => {
+//       setTimeout(() => {
 
-        const botResponse = {
+//         const botResponse = {
 
-          role: "model",
+//           role: "model",
 
-          text: predefinedPrompts[messageText],
+//           text: predefinedPrompts[messageText],
 
-        };
+//         };
 
-        setMessages((prevMessages) => [...prevMessages, botResponse]);
+//         setMessages((prevMessages) => [...prevMessages, botResponse]);
 
-        setIsLoading(false);
+//         setIsLoading(false);
 
-      }, 600);
+//       }, 600);
 
-      return;
+//       return;
 
-    }
+//     }
 
-    const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+//     const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+//     if (!GEMINI_API_KEY) {  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-    if (!GEMINI_API_KEY) {
 
-      setTimeout(() => {
+//       setTimeout(() => {
 
-        const fallbackResponse = {
+//         const fallbackResponse = {
 
-          role: "model",
+//           role: "model",
 
-          text: "I am currently configured to only answer the suggested questions. Please provide a Gemini API Key to enable full chat functionality.",
+//           text: "I am currently configured to only answer the suggested questions. Please provide a Gemini API Key to enable full chat functionality.",
 
-        };
+//         };
 
-        setMessages((prev) => [...prev, fallbackResponse]);
+//         setMessages((prev) => [...prev, fallbackResponse]);
 
-        setIsLoading(false);
+//         setIsLoading(false);
 
-      }, 800);
+//       }, 800);
 
-      return;
+//       return;
 
-    }
+//     }
 
-    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+//   
+//     const systemInstruction = {
 
-    const systemInstruction = {
+//       parts: [
 
-      parts: [
+//         {
 
-        {
+//           text: `You are "LegacyLink Support Assistant," a helpful AI for an alumni platform. Your purpose is to assist students with platform-related queries about mentorship, events, networking, and career advice. Stay on-topic. If asked an unrelated question, politely refuse.`,
 
-          text: `You are "LegacyLink Support Assistant," a helpful AI for an alumni platform. Your purpose is to assist students with platform-related queries about mentorship, events, networking, and career advice. Stay on-topic. If asked an unrelated question, politely refuse.`,
+//         },
 
-        },
+//       ],
 
-      ],
+//     };
 
-    };
+//     const history = messages
 
-    const history = messages
+//       .slice(-8)
 
-      .slice(-8)
+//       .map((msg) => ({ role: msg.role, parts: [{ text: msg.text }] }));
 
-      .map((msg) => ({ role: msg.role, parts: [{ text: msg.text }] }));
+//     try {
 
-    try {
+//       const response = await fetch(GEMINI_API_URL, {
 
-      const response = await fetch(GEMINI_API_URL, {
+//         method: "POST",
 
-        method: "POST",
+//         headers: { "Content-Type": "application/json" },
 
-        headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({
 
-        body: JSON.stringify({
+//           contents: [
 
-          contents: [
+//             ...history,
 
-            ...history,
+//             { role: "user", parts: [{ text: messageText }] },
 
-            { role: "user", parts: [{ text: messageText }] },
+//           ],
 
-          ],
+//           systemInstruction,
 
-          systemInstruction,
+//         }),
 
-        }),
+//       });
 
-      });
+//       if (!response.ok) throw new Error("API request failed.");
 
-      if (!response.ok) throw new Error("API request failed.");
+//       const data = await response.json();
 
-      const data = await response.json();
+//       const botResponse = {
 
-      const botResponse = {
+//         role: "model",
 
-        role: "model",
+//         text: data.candidates[0].content.parts[0].text,
 
-        text: data.candidates[0].content.parts[0].text,
+//       };
 
-      };
+//       setMessages((prev) => [...prev, botResponse]);
 
-      setMessages((prev) => [...prev, botResponse]);
+//     } catch (error) {
 
-    } catch (error) {
+//       console.error("Gemini API Error:", error);
 
-      console.error("Gemini API Error:", error);
+//       const errorResponse = {
 
-      const errorResponse = {
+//         role: "model",
 
-        role: "model",
-
-        text: "Sorry, I'm having trouble connecting right now. Please try again later.",
-
-      };
-
-      setMessages((prev) => [...prev, errorResponse]);
-
-    } finally {
-
-      setIsLoading(false);
-
-    }
-
-  };
+//         text: "Sorry, I'm having trouble connecting right now. Please try again later.",
+
+//       };
+
+//       setMessages((prev) => [...prev, errorResponse]);
+
+//     } finally {
+
+//       setIsLoading(false);
+
+//     }
+
+//   };
+
+const handleSend = async (messageText = input) => {
+  if (!messageText.trim() || isLoading) return;
+
+  const userMessage = { role: "user", text: messageText };
+  setMessages((prevMessages) => [...prevMessages, userMessage]);
+  setInput("");
+  setIsLoading(true);
+
+  if (predefinedPrompts[messageText]) {
+    setTimeout(() => {
+      const botResponse = {
+        role: "model",
+        text: predefinedPrompts[messageText],
+      };
+      setMessages((prevMessages) => [...prevMessages, botResponse]);
+      setIsLoading(false);
+    }, 600);
+    return;
+  }
+
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+  // ✅ SOLUTION 1: Define the URL in the main function scope.
+  // ✅ SOLUTION 2: Correct the model name to "gemini-1.5-flash-latest".
+//   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+if (!GEMINI_API_KEY) {
+    setTimeout(() => {
+      const fallbackResponse = {
+        role: "model",
+        text: "I am currently configured to only answer the suggested questions. Please provide a Gemini API Key to enable full chat functionality.",
+      };
+      setMessages((prev) => [...prev, fallbackResponse]);
+      setIsLoading(false);
+    }, 800);
+    return;
+  }
+
+  const systemInstruction = {
+    parts: [
+      {
+        text: `You are "LegacyLink Support Assistant," a helpful AI for an alumni platform. Your purpose is to assist students with platform-related queries about mentorship, events, networking, and career advice. Stay on-topic. If asked an unrelated question, politely refuse.`,
+      },
+    ],
+  };
+
+  const history = messages
+    .slice(-8)
+    .map((msg) => ({ role: msg.role, parts: [{ text: msg.text }] }));
+
+  try {
+    const response = await fetch(GEMINI_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          ...history,
+          { role: "user", parts: [{ text: messageText }] },
+        ],
+        systemInstruction,
+      }),
+    });
+
+    if (!response.ok) {
+      // Throw an error with more details from the API if possible
+      const errorData = await response.json();
+      console.error("API Error Response:", errorData);
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const botResponse = {
+      role: "model",
+      text: data.candidates[0].content.parts[0].text,
+    };
+    setMessages((prev) => [...prev, botResponse]);
+  } catch (error) {
+    console.error("Gemini API Error:", error);
+    const errorResponse = {
+      role: "model",
+      text: "Sorry, I'm having trouble connecting right now. Please try again later.",
+    };
+    setMessages((prev) => [...prev, errorResponse]);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
 
@@ -2861,8 +2950,6 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
                   alt={user.name}
 
                   className="w-10 h-10 rounded-full object-cover"
-
-                  _
 
                 />
 
