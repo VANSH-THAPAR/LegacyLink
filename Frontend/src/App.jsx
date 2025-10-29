@@ -7,7 +7,8 @@ import LandingPage from './components/LandingPage';
 import AuthPage from './components/AuthPage';
 import StudentDashboard from './components/StudentDashboard';
 import AlumniDashboard from './components/AlumniDashboard';
-import UniversityDashboard from './components/UniversityDashboard';
+import UniversityDashboard from './pages/UniversityDashboard';
+import ManageAlumni from './pages/ManageAlumni';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -68,6 +69,10 @@ function AppContent() {
                     <Route 
                         path="/university" 
                         element={<UniversityDashboard user={user} handleLogout={handleLogout} setUser={setUser} />} 
+                    />
+                    <Route 
+                        path="/manage-alumni" 
+                        element={<ManageAlumni user={user} handleLogout={handleLogout} setUser={setUser} />} 
                     />
                 </Route>
             </Routes>
