@@ -8,6 +8,7 @@ import EditProfileButton from './EditProfileButton';
 import MessagesPageWithBackend from './MessagesPageWithBackend';
 import NetworkPageWithBackend from './NetworkPageWithBackend';
 import EventsPageWithBackend from './EventsPageWithBackend';
+import OpportunitiesPage from './OpportunitiesPage'
 
 // --- ENHANCED HARDCODED DATA ---
 
@@ -951,6 +952,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
             case 'Messages': return <MessagesPage />;
+            case 'Opportunities': return <OpportunitiesPage user={user} userRole="alumni" />;
             case 'Network': return <NetworkPageWithBackend user={user} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
@@ -968,6 +970,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
                 <nav className="mt-10 flex flex-col gap-3">
                     <SidebarLink icon={LayoutDashboard} text="Dashboard" active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
                     <SidebarLink icon={MessageSquare} text="Messages" active={activePage === 'Messages'} onClick={() => setActivePage('Messages')} />
+                     <SidebarLink icon={Briefcase} text="Opportunities" active={activePage === 'Opportunities'} onClick={() => setActivePage('Opportunities')} />   
                     <SidebarLink icon={Users} text="Network" active={activePage === 'Network'} onClick={() => setActivePage('Network')} />
                     <SidebarLink icon={Calendar} text="Events" active={activePage === 'Events'} onClick={() => setActivePage('Events')} />
                     <SidebarLink icon={Gift} text="Giving Back" onClick={() => setIsDonationModalOpen(true)} />

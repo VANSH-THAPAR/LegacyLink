@@ -37,6 +37,7 @@ app.use('/api/alumni', require('./routes/alumni'));
 app.use('/api/student', require('./routes/student'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/opportunities', require('./routes/opportunities'));
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;

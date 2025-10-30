@@ -47,5 +47,6 @@ const studentSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
-const Student = mongoose.model('Student',studentSchema);
+// Check if model already exists to prevent OverwriteModelError
+const Student = mongoose.models.Student || mongoose.model('Student',studentSchema);
 module.exports = Student;
