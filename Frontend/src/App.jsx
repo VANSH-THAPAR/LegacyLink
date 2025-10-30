@@ -9,6 +9,7 @@ import StudentDashboard from './components/StudentDashboard';
 import AlumniDashboard from './components/AlumniDashboard';
 import UniversityDashboard from './components/UniversityDashboard';
 
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // This component contains hooks that need to be within a Router context
