@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./db/connectDB'); // Assuming you have this file
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const alumniRoutes = require('./routes/alumniRoutes');
+const studentRoutes = require('./routes/studentRoutes'); // We will create this
 
 // --- Environment Variable Check ---
 if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
@@ -28,6 +31,12 @@ app.use('/api/alumni', require('./routes/alumni'));
 app.use('/api/student', require('./routes/student'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
+// app.use('/',dashboardRoutes);
+// app.use('/',alumniRoutes);
+// app.use('/',studentRoutes);
+app.use('/api/', dashboardRoutes);
+app.use('/api/', alumniRoutes);
+app.use('/api/', studentRoutes);
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;

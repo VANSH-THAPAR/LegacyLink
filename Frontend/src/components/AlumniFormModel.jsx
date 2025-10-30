@@ -1,84 +1,102 @@
-import React from 'react';
+// src/components/AlumniFormModal.jsx
+import React, { useState, useEffect } from 'react';
 
-// A small helper component to keep the layout clean
-const InfoItem = ({ label, value, isLink = false }) => (
+// Reusable Input Field
+const InputField = ({ label, name, value, onChange, type = 'text', required = false }) => (
     <div>
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        {isLink && value ? (
-            <a href={value} target="_blank" rel="noopener noreferrer" className="text-base text-indigo-600 hover:underline break-words">
-                {value}
-            </a>
-        ) : (
-            <p className="text-base text-slate-800">{value || 'N/A'}</p>
-        )}
+        <label htmlFor={name} className="block text-sm font-medium text-slate-700">{label}</label>
+        <input
+            type={type}
+            name={name}
+            id={name}
+            value={value || ''}
+            onChange={onChange}
+            required={required}
+            className="form-input mt-1"
+        />
     </div>
 );
 
-const AlumniDetailModal = ({ isOpen, onClose, alumnus }) => {
-    if (!isOpen || !alumnus) return null;
+const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
+    const [formData, setFormData] = useState({});
+
+    useEffect(() => {
+        // When initialData (for editing) changes, update the form
+        if (initialData) {
+            setFormData(initialData);
+        } else {
+            // Clear form for 'Add'
+            setFormData({});
+        }
+    }, [initialData]);
+
+    if (!isOpen) return null;
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSubmit(formData);
+    };
+
+    const isEditing = Boolean(initialData);
 
     return (
         <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-slate-800">Alumni Profile</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
+                    <h2 className="text-2xl font-bold text-slate-800">{isEditing ? 'Edit Alumni' : 'Add New Alumni'}</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-3xl">&times;</button>
                 </div>
+                
+                <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Key Info */}
+                        <InputField label="Full Name" name="name" value={formData.name} onChange={handleChange} required />
+                        <InputField label="Student ID" name="StudentId" value={formData.StudentId} onChange={handleChange} required disabled={isEditing} />
+                        <InputField label="University Email" name="universityEmail" value={formData.universityEmail} onChange={handleChange} type="email" required />
+                        <InputField label="Personal Email" name="personalEmail" value={formData.personalEmail} onChange={handleChange} type="email" />
+                        <InputField label="Contact Number" name="contactNumber" value={formData.contactNumber} onChange={handleChange} />
+                        <InputField label="Profile Picture URL" name="ProfilePicture" value={formData.ProfilePicture} onChange={handleChange} />
 
-                <div className="flex-grow overflow-y-auto p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* --- Left Column: Photo & Key Info --- */}
-                        <div className="lg:col-span-1 flex flex-col items-center text-center">
-                            <img
-                                src={alumnus.ProfilePicture || `https://i.pravatar.cc/150?u=${alumnus.StudentId}`}
-                                alt="Profile"
-                                className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-lg mb-4"
-                            />
-                            <h3 className="text-2xl font-bold text-slate-900">{alumnus.name}</h3>
-                            <p className="text-md text-slate-600">{alumnus.degreeProgram}</p>
-                            <p className="text-sm text-slate-500">Batch of {alumnus.batchYear}</p>
-                            
-                            <div className="w-full mt-6 space-y-4 text-left">
-                                <InfoItem label="University Email" value={alumnus.universityEmail} />
-                                <InfoItem label="Contact Number" value={alumnus.contactNumber} />
-                                <InfoItem label="LinkedIn Profile" value={alumnus.LinkedInURL} isLink={true} />
-                            </div>
+                        {/* Academic Info */}
+                        <InputField label="Batch Year" name="batchYear" value={formData.batchYear} onChange={handleChange} type="number" required />
+                        <InputField label="Degree Program" name="degreeProgram" value={formData.degreeProgram} onChange={handleChange} required />
+                        
+                        {/* Personal Info */}
+                        <div>
+                            <label htmlFor="gender" className="block text-sm font-medium text-slate-700">Gender</label>
+                            <select name="gender" id="gender" value={formData.gender} onChange={handleChange} className="form-input mt-1">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
-
-                        {/* --- Right Column: Detailed Info --- */}
-                        <div className="lg:col-span-2">
-                            <div className="space-y-6">
-                                <div>
-                                    <h4 className="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Professional Details</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <InfoItem label="Profession" value={alumnus.profession} />
-                                        <InfoItem label="Company" value={alumnus.CompanyName} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 className="text-lg font-semibold text-slate-700 border-b pb-2 mb-4">Personal Details</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <InfoItem label="Gender" value={alumnus.gender} />
-                                        <InfoItem label="Date of Birth" value={alumnus.dob ? new Date(alumnus.dob).toLocaleDateString() : 'N/A'} />
-                                        <InfoItem label="Nationality" value={alumnus.nationality} />
-                                        <InfoItem label="Personal Email" value={alumnus.personalEmail} />
-                                        <InfoItem label="Father's Name" value={alumnus.fatherName} />
-                                        <InfoItem label="Mother's Name" value={alumnus.motherName} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <InputField label="Date of Birth" name="dob" value={formData.dob ? formData.dob.split('T')[0] : ''} onChange={handleChange} type="date" />
+                        <InputField label="Nationality" name="nationality" value={formData.nationality} onChange={handleChange} />
+                        
+                        {/* Professional Info */}
+                        <InputField label="Profession" name="profession" value={formData.profession} onChange={handleChange} />
+                        <InputField label="Company Name" name="CompanyName" value={formData.CompanyName} onChange={handleChange} />
+                        <InputField label="LinkedIn URL" name="LinkedInURL" value={formData.LinkedInURL} onChange={handleChange} />
                     </div>
-                </div>
 
-                 <div className="p-4 bg-slate-50 border-t flex justify-end rounded-b-2xl">
-                    <button onClick={onClose} className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">
-                        Close
-                    </button>
-                </div>
+                    <div className="p-4 bg-white mt-8 flex justify-end space-x-3">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200">
+                            Cancel
+                        </button>
+                        <button type="submit" className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">
+                            {isEditing ? 'Save Changes' : 'Add Alumni'}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
 };
 
-export default AlumniDetailModal;
+export default AlumniFormModal;
