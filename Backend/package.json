@@ -15,6 +15,7 @@
     "bcryptjs": "^3.0.2",
     "chart.js": "^4.5.1",
     "cloudinary": "^2.7.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",

@@ -21,6 +21,11 @@ const StudentSchema = new mongoose.Schema({
     interests: { type: [String], default: [] }
 }, { timestamps: true });
 
+// Add indexes for faster login queries
+StudentSchema.index({ email: 1 });
+StudentSchema.index({ rollNumber: 1 });
+StudentSchema.index({ email: 1, rollNumber: 1 });
+
 // Alumni Schema
 const AlumniSchema = new mongoose.Schema({
     ...BaseUserSchema.obj,
@@ -41,6 +46,11 @@ const AlumniSchema = new mongoose.Schema({
     maxMentees: { type: Number, default: 5 }
 }, { timestamps: true });
 
+// Add indexes for faster login queries
+AlumniSchema.index({ email: 1 });
+AlumniSchema.index({ rollNumber: 1 });
+AlumniSchema.index({ email: 1, rollNumber: 1 });
+
 // University Schema (keeping for completeness)
 const UniversitySchema = new mongoose.Schema({
     role: { type: String, default: 'university' },
@@ -48,6 +58,9 @@ const UniversitySchema = new mongoose.Schema({
     universityId: { type: String, unique: true, required: true },
     password: { type: String, required: true }
 }, { timestamps: true });
+
+// Add index for faster university login queries
+UniversitySchema.index({ universityId: 1 });
 
 // Clear any existing models to avoid conflicts
 if (mongoose.models.Student) delete mongoose.models.Student;

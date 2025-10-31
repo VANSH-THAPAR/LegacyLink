@@ -5,7 +5,8 @@ const connectDB = require('./db/connectDB'); // Assuming you have this file
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const alumniRoutes = require('./routes/alumniRoutes');
 const studentRoutes = require('./routes/studentRoutes'); // We will create this
-
+const compressionMiddleware = require('./middleware/compression');
+const performanceMiddleware = require('./middleware/performance');
 // --- Environment Variable Check ---
 if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
     console.error('FATAL ERROR: MONGO_URI and JWT_SECRET must be defined.');
@@ -18,8 +19,15 @@ connectDB();
 const app = express();
 
 // --- Middleware ---
+// Performance monitoring (should be first)
+app.use(performanceMiddleware);
+
+// Compression for better network performance
+app.use(compressionMiddleware);
+
 // Use cors before defining routes
 app.use(cors()); 
+
 // Increase limit for base64 image uploads
 app.use(express.json({ limit: '10mb' })); 
 
@@ -37,6 +45,8 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/', dashboardRoutes);
 app.use('/api/', alumniRoutes);
 app.use('/api/', studentRoutes);
+app.use('/api/opportunities', require('./routes/opportunities'));
+
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;

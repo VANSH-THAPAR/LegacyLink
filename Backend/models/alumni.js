@@ -50,5 +50,11 @@ const alumniSchema = new mongoose.Schema({
     timestamps: true
 });
 
+<<<<<<< HEAD:Backend/models/alumni.js
 const Alumni = mongoose.model('Alumni', alumniSchema);
+=======
+// Check if model already exists to prevent OverwriteModelError
+const Alumni = mongoose.models.Alumni || mongoose.model('Alumni', alumniSchema);
+
+>>>>>>> task-2:Backend/models/alumniSchema.js
 module.exports = Alumni;

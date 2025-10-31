@@ -11,6 +11,7 @@ import UniversityDashboard from './pages/UniversityDashboard';
 import ManageAlumni from './pages/ManageAlumni';
 import ManageStudent from './pages/ManageStudent';
 
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // This component contains hooks that need to be within a Router context

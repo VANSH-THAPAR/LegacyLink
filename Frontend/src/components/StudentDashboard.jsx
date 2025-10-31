@@ -62,9 +62,9 @@ import {
 
 // NEW: Import jsPDF for PDF generation
 
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 
-
+import OpportunitiesPage from "./OpportunitiesPage";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -2686,7 +2686,8 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
       case "Messages":
 
         return <MessagesPage onMentorClick={handleMentorClick} />;
-
+case "Opportunities":
+        return <OpportunitiesPage user={user} userRole="student" />;
       case "Profile":
 
         return <ProfilePage student={user} setUser={setUser} />;
@@ -2789,6 +2790,13 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
 
             {" "}
 
+          <SidebarLink
+              icon={Briefcase}
+              text="Opportunities"
+              active={activePage === "Opportunities"}
+              onClick={() => setActivePage("Opportunities")}
+            />
+            {" "}
             <SidebarLink
 
               icon={User}
