@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Opportunity = require('../models/opportunitySchema');
-const Alumni = require('../models/alumniSchema');
+const Alumni = require('../models/alumni');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // @route   GET /api/opportunities
