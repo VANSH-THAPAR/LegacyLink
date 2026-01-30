@@ -18,7 +18,12 @@ const StudentSchema = new mongoose.Schema({
     role: { type: String, default: 'student' },
     course: { type: String },
     year: { type: String },
-    interests: { type: [String], default: [] }
+    interests: { type: [String], default: [] },
+    // Placement eligibility fields
+    cgpa: { type: Number, min: 0, max: 10 },
+    backlogs: { type: Number, min: 0, default: 0 },
+    phone: { type: String },
+    semester: { type: String }
 }, { timestamps: true });
 
 // Add indexes for faster login queries
