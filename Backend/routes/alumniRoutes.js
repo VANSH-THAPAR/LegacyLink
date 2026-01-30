@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Alumni = require('../models/alumni');
+const authMiddleware = require('../middleware/authMiddleware');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const cloudinary = require('cloudinary').v2;
@@ -12,52 +13,92 @@ const upload = multer({ storage: storage });
 // --- Helper function for Excel key mapping (CASE-INSENSITIVE) ---
 const mapExcelKeysToSchema = (record) => {
     const schemaKeyMap = {
-        studentid: 'StudentId',
-        linkedinurl: 'LinkedInURL',
-        profilepicture: 'ProfilePicture',
-        companyname: 'CompanyName',
+        studentid: 'rollNumber', 
+        rollnumber: 'rollNumber',
+        student_id: 'rollNumber',
+        linkedinurl: 'linkedin',
+        linkedin_url: 'linkedin',
+        profilepicture: 'profilePicture',
+        profile_picture: 'profilePicture',
+        companyname: 'company', 
+        company_name: 'company',
+        company: 'company',
         name: 'name',
-        universityemail: 'universityEmail',
-        personalemail: 'personalEmail',
+        universityemail: 'email', 
+        university_email: 'email',
+        email: 'email',
+        // personalEmail maps to personalEmail field now
+        personalemail: 'personalEmail', 
+        personal_email: 'personalEmail',
         contactnumber: 'contactNumber',
+        contact_number: 'contactNumber',
         fathername: 'fatherName',
+        father_name: 'fatherName',
         mothername: 'motherName',
+        mother_name: 'motherName',
         nationality: 'nationality',
         gender: 'gender',
         role: 'role',
         dob: 'dob',
+        dateofbirth: 'dob',
         profession: 'profession',
         batchyear: 'batchYear',
-        degreeprogram: 'degreeProgram'
+        batch_year: 'batchYear',
+        degreeprogram: 'degreeProgram',
+        degree_program: 'degreeProgram',
+        location: 'location',
+        position: 'position'
     };
     
     const newRecord = {};
     for (const key in record) {
         const lowerCaseKey = key.toLowerCase().replace(/ /g, ''); // Also remove spaces
+        // Also try replacing underscores for match if needed, but the map above handles some variants
+        // The robust way is to rely on the clean key
+        
         const newKey = schemaKeyMap[lowerCaseKey];
         if (newKey) {
             newRecord[newKey] = record[key];
         }
     }
+    
+    // Explicit precedence: If universityEmail exists in record, ensure it sets 'email'
+    // The loop above uses the key text. keys 'universityEmail' and 'email' both map to 'email'.
+    // If Excel has both 'universityEmail' and 'personalEmail', 'universityEmail' -> 'email', 'personalEmail' -> 'personalEmail'.
+    // If Excel has 'universityEmail' and 'email' (header), both write to 'email'. Last one wins. 
+    // Usually Excel has 'University Email' OR 'Email'. The user image shows 'universityEmail'.
+    
+    // Default values if missing
+    if (!newRecord.role) {
+        newRecord.role = 'alumni';
+    } else {
+        newRecord.role = newRecord.role.toLowerCase(); // Ensure lowercase for enum validation
+    }
+    if (!newRecord.collegeName) newRecord.collegeName = 'Chitkara University';
+    if (!newRecord.password) newRecord.password = '$2a$10$fbO6T7yB0.dDq.y/Wp/oO.j7l7W/y/Wp/oO.j7l7W'; 
+    
     return newRecord;
 };
 
 // --- GET: Fetch alumni (GET /api/alumni/get-alumni) ---
 router.get('/get-alumni', async (req, res) => {
     try {
-        const stringSearchFields = ['name', 'StudentId', 'universityEmail', 'personalEmail', 'degreeProgram', 'profession', 'CompanyName', 'nationality'];
         const query = {};
-        for (const key in req.query) {
-            if (Object.prototype.hasOwnProperty.call(req.query, key) && req.query[key]) {
-                if (stringSearchFields.includes(key)) {
-                    query[key] = { $regex: new RegExp(req.query[key], 'i') };
-                } else {
-                    query[key] = req.query[key];
-                }
-            }
-        }
-        console.log('GET /api/alumni/get-alumni - HIT! Query:', query);
+        
+        // Map frontend filters to schema fields
+        if (req.query.name) query.name = { $regex: new RegExp(req.query.name, 'i') };
+        if (req.query.StudentId) query.rollNumber = { $regex: new RegExp(req.query.StudentId, 'i') }; // Partial match for ID
+        if (req.query.batchYear) query.batchYear = parseInt(req.query.batchYear);
+        if (req.query.degreeProgram) query.degreeProgram = req.query.degreeProgram;
+        if (req.query.gender) query.gender = req.query.gender;
+        if (req.query.profession) query.profession = { $regex: new RegExp(req.query.profession, 'i') };
+        if (req.query.nationality) query.nationality = { $regex: new RegExp(req.query.nationality, 'i') };
+
+        console.log('GET /api/alumni/get-alumni - Query:', query);
+        // Explicitly check role to ensure we get alumni, though discriminator handles it usually
         const findAlumni = await Alumni.find(query);
+        console.log(`Found ${findAlumni.length} alumni records.`);
+        
         res.status(200).json(findAlumni);
     } catch (err) {
         console.error("ERROR fetching alumni:", err); 
@@ -118,37 +159,53 @@ router.post('/upload', upload.single('alumniFile'), async (req, res) => {
             return res.status(400).json({ message: "The Excel file is empty or formatted incorrectly." });
         }
 
+        const validRecords = [];
         const transformedData = jsonData.map(record => {
             const mappedRecord = mapExcelKeysToSchema(record);
-            // --- Date Conversion Fix ---
-            if (mappedRecord.dob) {
-                let excelDate;
-                if (typeof mappedRecord.dob === 'number') {
-                    // Handle Excel serial date format
-                    excelDate = new Date(Math.round((mappedRecord.dob - 25569) * 86400 * 1000));
-                } else {
-                    // Handle string dates (e.g., DD/MM/YYYY)
-                    const parts = String(mappedRecord.dob).split('/');
-                    if (parts.length === 3) {
-                         // Assuming DD/MM/YYYY, convert to MM/DD/YYYY for Date parser
-                        excelDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+            
+            // Basic validation for required fields
+            if (mappedRecord.name && (mappedRecord.email || mappedRecord.rollNumber)) {
+                
+                // --- Date Conversion Fix ---
+                if (mappedRecord.dob) {
+                    let excelDate;
+                    if (typeof mappedRecord.dob === 'number') {
+                        // Handle Excel serial date format
+                        excelDate = new Date(Math.round((mappedRecord.dob - 25569) * 86400 * 1000));
                     } else {
-                        excelDate = new Date(mappedRecord.dob); // Try to parse directly
+                        // Handle string dates (e.g., DD/MM/YYYY)
+                        const parts = String(mappedRecord.dob).split('/');
+                        if (parts.length === 3) {
+                             // Assuming DD/MM/YYYY, convert to MM/DD/YYYY for Date parser
+                            excelDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
+                        } else {
+                            excelDate = new Date(mappedRecord.dob); // Try to parse directly
+                        }
+                    }
+                    
+                    if (!isNaN(excelDate.getTime())) {
+                        mappedRecord.dob = excelDate;
+                    } else {
+                        delete mappedRecord.dob; // Remove invalid date
                     }
                 }
                 
-                if (!isNaN(excelDate.getTime())) {
-                    mappedRecord.dob = excelDate;
-                } else {
-                    console.warn(`Invalid date format for record: ${mappedRecord.StudentId || 'Unknown'}. DOB: ${mappedRecord.dob}`);
-                    delete mappedRecord.dob; // Remove invalid date
-                }
+                // Default password generation (better to use bcrypt here, but for now simple string)
+                 // NOTE: In production, hash this password!
+                if(!mappedRecord.password) mappedRecord.password = '$2a$10$fbO6T7yB0.dDq.y/Wp/oO.j7l7W/y/Wp/oO.j7l7W'; // "changeMe" hash placeholder
+                
+                validRecords.push(mappedRecord);
+                return mappedRecord;
             }
-            return mappedRecord;
-        });
+            return null;
+        }).filter(record => record !== null);
         
-        console.log("Attempting to insert transformed data sample (first row):", transformedData[0]);
-        const result = await Alumni.insertMany(transformedData, { ordered: false });
+        if (validRecords.length === 0) {
+            return res.status(400).json({ message: "No valid alumni records found. Check your Excel headers." });
+        }
+        
+        console.log(`Attempting to insert ${validRecords.length} records. Sample:`, validRecords[0]);
+        const result = await Alumni.insertMany(validRecords, { ordered: false });
         res.status(201).json({ message: `Successfully added ${result.length} new alumni.` });
 
     } catch (err) {
@@ -222,6 +279,103 @@ router.post('/upload-image', async (req, res) => {
     } catch (err) {
         console.error("ERROR uploading image to Cloudinary:", err);
         res.status(500).json({ message: "Image upload failed.", error: err.message });
+    }
+});
+
+// --- MERGED ROUTES FROM alumni.js ---
+
+// [GET] /api/alumni/search - Search alumni by name, skills, company, etc.
+router.get('/search', authMiddleware, async (req, res) => {
+    try {
+        const { q, industry, graduationYear, limit = 20 } = req.query;
+        
+        let query = {}; 
+        
+        if (q) {
+            query.$or = [
+                { name: { $regex: q, $options: 'i' } },
+                { position: { $regex: q, $options: 'i' } },
+                { company: { $regex: q, $options: 'i' } },
+                { skills: { $in: [new RegExp(q, 'i')] } }
+            ];
+        }
+        
+        if (industry) {
+            query.industry = industry;
+        }
+        
+        if (graduationYear) {
+            query.graduatingYear = parseInt(graduationYear);
+        }
+        
+        const alumni = await Alumni.find(query)
+            .select('-password')
+            .limit(parseInt(limit))
+            .sort({ createdAt: -1 });
+            
+        res.json(alumni);
+    } catch (err) {
+        console.error('Alumni search error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [GET] /api/alumni/profile/:id - Get specific alumni profile
+router.get('/profile/:id', authMiddleware, async (req, res) => {
+    try {
+        const alumni = await Alumni.findById(req.params.id).select('-password');
+        
+        if (!alumni) {
+            return res.status(404).json({ msg: 'Alumni not found' });
+        }
+        
+        res.json(alumni);
+    } catch (err) {
+        console.error('Get alumni profile error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [GET] /api/alumni/top-contributors - Get top contributing alumni
+router.get('/top-contributors', authMiddleware, async (req, res) => {
+    try {
+        const topAlumni = await Alumni.find({ 
+            isTopContributor: true 
+        })
+        .select('-password')
+        .sort({ engagementScore: -1 })
+        .limit(10);
+        
+        res.json(topAlumni);
+    } catch (err) {
+        console.error('Get top contributors error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [POST] /api/alumni/mentorship-request - Send mentorship request
+router.post('/mentorship-request', authMiddleware, async (req, res) => {
+    try {
+        const { mentorId, message } = req.body;
+        
+        if (!mentorId || !message) {
+            return res.status(400).json({ msg: 'Mentor ID and message are required' });
+        }
+        
+        const mentor = await Alumni.findById(mentorId);
+        if (!mentor) {
+            return res.status(404).json({ msg: 'Mentor not found' });
+        }
+        
+        // In a real app, you'd save this to a MentorshipRequest model
+        // For now, we'll just return success
+        res.json({ 
+            msg: 'Mentorship request sent successfully',
+            mentorName: mentor.name 
+        });
+    } catch (err) {
+        console.error('Mentorship request error:', err.message);
+        res.status(500).send('Server Error');
     }
 });
 

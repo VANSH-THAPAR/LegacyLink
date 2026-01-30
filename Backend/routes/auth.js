@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { Student, Alumni, University } = require('../models/User');
+const { User, Student, Alumni, University } = require('../models/UnifiedUser'); // Updated to UnifiedUser
 const cloudinary = require('../utils/cloudinary'); // Use the new config file
 const authCache = require('../utils/cache');
 
@@ -16,17 +16,17 @@ router.post('/signup', async (req, res) => {
         }
         
         let imageUrl = '';
-        // If a profile picture is included in the form data...
         if (profilePicture) {
             try {
-                // ...upload it directly to Cloudinary.
                 const uploadedResponse = await cloudinary.uploader.upload(profilePicture, {
-                    folder: "legacylink_profiles", // This creates a folder in Cloudinary to keep images organized
+                    folder: "legacylink_profiles",
                     resource_type: "image",
                 });
                 imageUrl = uploadedResponse.secure_url;
             } catch (uploadError) {
                 console.error("Cloudinary Upload Error:", uploadError);
+                // Continue without image or fail? Let's verify requirement. 
+                // Previous code returned 500.
                 return res.status(500).json({ msg: 'Image could not be uploaded.' });
             }
         }
@@ -35,39 +35,51 @@ router.post('/signup', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Global duplicate check for email/rollNumber if applicable
+        if (req.body.email) {
+            if (await User.findOne({ email: req.body.email })) return res.status(400).json({ msg: 'A user with this email already exists.' });
+        }
+        if (req.body.rollNumber) {
+            if (await User.findOne({ rollNumber: req.body.rollNumber })) return res.status(400).json({ msg: 'A user with this roll number already exists.' });
+        }
+
         if (role === 'university') {
             const { universityId, universityName } = req.body;
             if (!universityId || !universityName) return res.status(400).json({ msg: 'University name and ID are required.' });
             if (await University.findOne({ universityId })) return res.status(400).json({ msg: 'A university with this ID already exists.' });
             
-            newUser = new University({ ...req.body, password: hashedPassword });
+            // Map universityName to name for BaseUserSchema requirement
+            newUser = new University({ 
+                ...req.body, 
+                name: universityName, // Required by BaseSchema
+                password: hashedPassword 
+            });
         } else if (role === 'student') {
             const { email, name, rollNumber } = req.body;
             if (!email || !name || !rollNumber) return res.status(400).json({ msg: 'Email, name, and roll number are required.' });
-            if (await Student.findOne({ email })) return res.status(400).json({ msg: 'A user with this email already exists.' });
-            if (await Student.findOne({ rollNumber })) return res.status(400).json({ msg: 'A user with this roll number already exists.' });
             
             newUser = new Student({ ...req.body, password: hashedPassword, profilePicture: imageUrl });
         } else if (role === 'alumni') {
             const { email, name, rollNumber } = req.body;
             if (!email || !name || !rollNumber) return res.status(400).json({ msg: 'Email, name, and roll number are required.' });
-            if (await Alumni.findOne({ email })) return res.status(400).json({ msg: 'A user with this email already exists.' });
-            if (await Alumni.findOne({ rollNumber })) return res.status(400).json({ msg: 'A user with this roll number already exists.' });
             
             newUser = new Alumni({ ...req.body, password: hashedPassword, profilePicture: imageUrl });
         } else {
             return res.status(400).json({ msg: 'Invalid role specified.' });
         }
 
-        console.log('Creating user with role:', role); // Debug log
+        console.log('Creating user with role:', role);
         await newUser.save();
-        console.log('User saved with role:', newUser.role, 'in collection:', newUser.constructor.modelName); // Debug log
+        console.log('User saved successfully');
 
         res.status(201).json({ msg: 'User registered successfully!' });
 
     } catch (err) {
-        console.error("Signup Error:", err.message);
-        res.status(500).send('Server Error');
+        console.error("Signup Error:", err); // Improved logging
+        if (err.code === 11000) {
+            return res.status(400).json({ msg: 'Duplicate key error. User already exists.' });
+        }
+        res.status(500).json({ msg: 'Server Error', error: err.message });
     }
 });
 
@@ -95,31 +107,16 @@ router.post('/login', async (req, res) => {
         user = authCache.get(trimmedIdentifier);
         
         if (!user) {
-            // Optimize search strategy based on identifier format
-            if (trimmedIdentifier.includes('@')) {
-                // Email format - search students first (most common), then alumni
-                user = await Student.findOne({ email: trimmedIdentifier })
-                    .select('+password')
-                    .lean(); // Use lean() for faster queries
-                
-                if (!user) {
-                    user = await Alumni.findOne({ email: trimmedIdentifier })
-                        .select('+password')
-                        .lean();
-                }
-            } else {
-                // Roll number or university ID format
-                // Try student/alumni first, then university
-                const queries = [
-                    Student.findOne({ rollNumber: trimmedIdentifier }).select('+password').lean(),
-                    Alumni.findOne({ rollNumber: trimmedIdentifier }).select('+password').lean(),
-                    University.findOne({ universityId: trimmedIdentifier }).select('+password').lean()
-                ];
-
-                // Execute queries in parallel for better performance
-                const results = await Promise.allSettled(queries);
-                user = results.find(result => result.status === 'fulfilled' && result.value)?.value;
-            }
+            // Optimized: Search using the base User model with an $or query
+            // This checks all roles (Student, Alumni, University) in a single DB call
+            // and leverages the indexes we set up in UnifiedUser.js
+            user = await User.findOne({
+                $or: [
+                    { email: trimmedIdentifier },
+                    { rollNumber: trimmedIdentifier }, // Student/Alumni ID
+                    { universityId: trimmedIdentifier } // University ID
+                ]
+            }).select('+password').lean(); // Lean for performance
 
             // Cache the user for future requests (if found)
             if (user) {

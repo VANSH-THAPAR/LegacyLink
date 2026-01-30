@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import AlumniFormModal from '../components/AlumniFormModel';
 import AlumniDetailModal from '../components/AlumniModelDetail';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 // --- Recharts Imports ---
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
@@ -34,7 +36,7 @@ const ManageAlumni = () => {
     useEffect(() => {
         const fetchFilterMetadata = async () => {
             try {
-                const response = await fetch(`${import.meta.env.VITE_backend_url}/metadata`);
+                const response = await fetch(`${API_URL}/alumni/metadata`);
                 if (!response.ok) throw new Error('Could not load filter options.');
                 const data = await response.json();
                 setFilterOptions(data);
@@ -51,7 +53,7 @@ const ManageAlumni = () => {
         setError(null);
         const queryParams = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))).toString();
         try {
-            const response = await fetch(`${import.meta.env.VITE_backend_url}/get-alumni?${queryParams}`);
+            const response = await fetch(`${API_URL}/alumni/get-alumni?${queryParams}`);
             if (!response.ok) throw new Error('Network response was not ok.');
             const data = await response.json();
             setAlumni(data);
@@ -78,7 +80,7 @@ const ManageAlumni = () => {
 
     const handleFormSubmit = async (formData) => {
         const isEditing = Boolean(editingAlumnus);
-        const url = isEditing ? `${import.meta.env.VITE_backend_url}/update-alumni/${editingAlumnus.StudentId}` : `${import.meta.env.VITE_backend_url}/add-alumni`;
+        const url = isEditing ? `${API_URL}/alumni/update-alumni/${editingAlumnus.StudentId}` : `${API_URL}/alumni/add-alumni`;
         const method = isEditing ? 'PUT' : 'POST';
         try {
             const response = await fetch(url, {
@@ -101,7 +103,7 @@ const ManageAlumni = () => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to permanently delete this record?')) {
             try {
-                const response = await fetch(`${import.meta.env.VITE_backend_url}/delete-alumni/${studentId}`, { method: 'DELETE' });
+                const response = await fetch(`${API_URL}/alumni/delete-alumni/${studentId}`, { method: 'DELETE' });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to delete record.');
                 alert('Alumni record deleted.');
@@ -119,7 +121,7 @@ const ManageAlumni = () => {
         const formData = new FormData();
         formData.append('alumniFile', file);
         try {
-            const response = await fetch(`${import.meta.env.VITE_backend_url}/upload`, { method: 'POST', body: formData });
+            const response = await fetch(`${API_URL}/alumni/upload`, { method: 'POST', body: formData });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'File upload failed');
             alert(result.message);
@@ -231,15 +233,15 @@ const ManageAlumni = () => {
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
                                                             <div className="flex-shrink-0 h-10 w-10">
-                                                                <img className="h-10 w-10 rounded-full object-cover" src={alum.ProfilePicture || `https://i.pravatar.cc/150?u=${alum.StudentId}`} alt="Profile" />
+                                                                <img className="h-10 w-10 rounded-full object-cover" src={alum.profilePicture || alum.ProfilePicture || `https://i.pravatar.cc/150?u=${alum.StudentId}`} alt="Profile" />
                                                             </div>
                                                             <div className="ml-4">
                                                                 <div className="text-sm font-medium text-slate-900">{alum.name}</div>
-                                                                <div className="text-sm text-slate-500">{alum.universityEmail}</div>
+                                                                <div className="text-sm text-slate-500">{alum.email || alum.universityEmail}</div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="td-cell">{alum.StudentId}</td>
+                                                    <td className="td-cell">{alum.rollNumber || alum.StudentId}</td>
                                                     <td className="td-cell">
                                                         <div className="text-sm text-slate-900">{alum.degreeProgram}</div>
                                                         <div className="text-sm text-slate-500">Batch of {alum.batchYear}</div>

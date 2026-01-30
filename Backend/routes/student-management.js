@@ -4,12 +4,17 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const bcrypt = require('bcryptjs');
 const authMiddleware = require('../middleware/authMiddleware');
-const { Student } = require('../models/User');
+const { Student } = require('../models/UnifiedUser'); // Updated to UnifiedUser
+const migrationController = require('../controllers/migrationController');
 
 // Debug route - no auth required
 router.get('/test', (req, res) => {
     res.json({ msg: 'Student management routes are working!' });
 });
+
+// Migration Routes
+router.post('/promote/:studentId', authMiddleware, migrationController.promoteStudent);
+router.post('/graduate-batch', authMiddleware, migrationController.graduateBatch);
 
 // Configure multer for file upload
 const storage = multer.memoryStorage();
@@ -198,7 +203,7 @@ router.post('/confirm-upload', authMiddleware, requireUniversityAdmin, async (re
                 cgpa: parseFloat(data.cgpa),
                 backlogs: parseInt(data.backlogs) || 0,
                 phone: data.phone?.toString().trim() || '',
-                collegeName: req.user.universityName || 'Unknown University',
+                collegeName: 'Chitkara University', // Fixed: Default to Chitkara University
                 // Set default password
                 password: hashedPassword
             };
@@ -329,7 +334,7 @@ router.get('/export-eligible', authMiddleware, requireUniversityAdmin, async (re
                 student.cgpa,
                 student.backlogs,
                 student.phone || '',
-                student.collegeName
+                student.collegeName === 'Unknown University' ? 'Chitkara University' : (student.collegeName || 'Chitkara University')
             ]);
         });
 

@@ -470,7 +470,7 @@ const ManageStudents = ({ user, handleLogout }) => {
                                         {eligibilityData && (
                                             <button
                                                 onClick={handleExportEligible}
-                                                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center space-x-2"
+                                                className="px-6 py-2 bg-gradient-to-r from-green-700 to-green-600 hover:from-green-800 hover:to-green-700 hover:scale-105 text-white font-medium rounded-lg transition-all duration-300 flex items-center space-x-2 shadow-lg"
                                             >
                                                 <DownloadIcon className="w-4 h-4" />
                                                 <span>Export to Excel</span>

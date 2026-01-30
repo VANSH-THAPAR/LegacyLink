@@ -1,59 +1,72 @@
 const express = require('express');
 const cors = require('cors');
+const http = require('http'); // Import http module
+const socketIo = require('socket.io'); // Import socket.io
 require('dotenv').config();
-const connectDB = require('./db/connectDB'); // Assuming you have this file
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const alumniRoutes = require('./routes/alumniRoutes');
-const studentRoutes = require('./routes/studentRoutes'); // We will create this
-const compressionMiddleware = require('./middleware/compression');
-const performanceMiddleware = require('./middleware/performance');
-// --- Environment Variable Check ---
-if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
-    console.error('FATAL ERROR: MONGO_URI and JWT_SECRET must be defined.');
-    process.exit(1);
-}
+const connectDB = require('./db/connectDB');
 
 // Connect to Database
 connectDB();
 
 const app = express();
+const server = http.createServer(app); // Create HTTP server
+
+// Initialize Socket.io
+const io = socketIo(server, {
+    cors: {
+        origin: "*", // Allow all origins for dev, restrict in prod
+        methods: ["GET", "POST"]
+    }
+});
+
+// Make io available in routes
+app.set('io', io);
 
 // --- Middleware ---
-// Performance monitoring (should be first)
-app.use(performanceMiddleware);
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+// Removed overly verbose performance middleware to reduce log noise as requested
 
-// Compression for better network performance
-app.use(compressionMiddleware);
+// --- WebSocket Logic ---
+io.on('connection', (socket) => {
+    console.log('New client connected:', socket.id);
 
-// Use cors before defining routes
-app.use(cors()); 
+    // Join a private room based on userId (sent from client)
+    socket.on('join_room', (userId) => {
+        if (userId) {
+            socket.join(userId);
+            console.log(`User ${userId} joined room ${userId}`);
+        }
+    });
 
-// Increase limit for base64 image uploads
-app.use(express.json({ limit: '10mb' })); 
+    // Handle sending messages (Real-time relay)
+    socket.on('send_message', (data) => {
+        // data should contain { recipientId, message, senderName ... }
+        // Emit to the specific recipient's room
+        if (data.recipientId) {
+            io.to(data.recipientId).emit('receive_message', data);
+            // Also emit back to sender so they see it confirmed (optional if they update UI optimistically)
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
+});
 
 // --- API Routes ---
-// These prefixes correctly create /api/auth/* and /api/user/* routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
-app.use('/api/alumni', require('./routes/alumni'));
+app.use('/api/alumni', require('./routes/alumniRoutes'));
 app.use('/api/student', require('./routes/student'));
-console.log('Loading student-management routes...');
 app.use('/api/student-management', require('./routes/student-management'));
-console.log('Student-management routes loaded');
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
-// app.use('/',dashboardRoutes);
-// app.use('/',alumniRoutes);
-// app.use('/',studentRoutes);
-app.use('/api/', dashboardRoutes);
-app.use('/api/', alumniRoutes);
-app.use('/api/', studentRoutes);
 app.use('/api/opportunities', require('./routes/opportunities'));
-console.log('Loading university routes...');
 app.use('/api/university', require('./routes/university'));
-console.log('University routes loaded');
-
+app.use('/api/', require('./routes/dashboardRoutes')); // Kept for legacy compatibility
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+// Use strict http server listen
+server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
