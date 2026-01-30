@@ -35,9 +35,15 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/alumni', require('./routes/alumni'));
 app.use('/api/student', require('./routes/student'));
+console.log('Loading student-management routes...');
+app.use('/api/student-management', require('./routes/student-management'));
+console.log('Student-management routes loaded');
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/opportunities', require('./routes/opportunities'));
+console.log('Loading university routes...');
+app.use('/api/university', require('./routes/university'));
+console.log('University routes loaded');
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;

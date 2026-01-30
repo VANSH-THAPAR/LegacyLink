@@ -78,7 +78,8 @@ const AuthPage = ({ setUser }) => {
                 setUser(data.user);
                 
                 // Use replace instead of push for faster navigation
-                navigate(`/${data.user.role}`, { replace: true });
+                const route = data.user.role === 'university' ? '/university-dashboard' : `/${data.user.role}`;
+                navigate(route, { replace: true });
             } else {
                 setMessage('Signup successful! Please login.');
                 setIsLogin(true);

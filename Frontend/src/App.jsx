@@ -9,7 +9,9 @@ import StudentDashboard from './components/StudentDashboard';
 import AlumniDashboard from './components/AlumniDashboard';
 import UniversityDashboard from './pages/UniversityDashboard';
 import ManageAlumni from './pages/ManageAlumni';
-
+import ManageStudents from './pages/ManageStudents';
+import ViewFunds from './pages/ViewFunds';
+import GenerateReports from './pages/GenerateReports';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -68,12 +70,24 @@ function AppContent() {
                         element={<AlumniDashboard user={user} handleLogout={handleLogout} setUser={setUser} />} 
                     />
                     <Route 
-                        path="/university" 
+                        path="/university-dashboard" 
                         element={<UniversityDashboard user={user} handleLogout={handleLogout} setUser={setUser} />} 
                     />
                     <Route 
                         path="/manage-alumni" 
                         element={<ManageAlumni user={user} handleLogout={handleLogout} setUser={setUser} />} 
+                    />
+                    <Route 
+                        path="/manage-students" 
+                        element={<ManageStudents user={user} handleLogout={handleLogout} setUser={setUser} />} 
+                    />
+                    <Route 
+                        path="/view-funds" 
+                        element={<ViewFunds user={user} handleLogout={handleLogout} setUser={setUser} />} 
+                    />
+                    <Route 
+                        path="/generate-reports" 
+                        element={<GenerateReports user={user} handleLogout={handleLogout} setUser={setUser} />} 
                     />
                 </Route>
             </Routes>
