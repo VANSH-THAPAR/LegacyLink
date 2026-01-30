@@ -42,7 +42,16 @@ const OpportunitiesPage = ({ user, userRole }) => {
             if (searchQuery) queryParams.append('search', searchQuery);
             queryParams.append('sort', filters.sort);
 
-            const response = await fetch(`${API_URL}/opportunities?${queryParams.toString()}`);
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/opportunities?${queryParams.toString()}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            // Check for 401/403 specifically to handle auth errors gracefully?
+            // But main logic handles errors via data.success check usually
+            
             const data = await response.json();
 
             if (data.success) {

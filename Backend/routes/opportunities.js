@@ -1,14 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const Opportunity = require('../models/opportunitySchema');
-const Alumni = require('../models/alumni');
+const { Alumni, User } = require('../models/UnifiedUser'); // Use UnifiedUser
 const authMiddleware = require('../middleware/authMiddleware');
 
 // @route   GET /api/opportunities
-// @desc    Get all opportunities with filters
-// @access  Public
-router.get('/', async (req, res) => {
+// @desc    Get all opportunities with filters (Scoped to College)
+// @access  Private
+router.get('/', authMiddleware, async (req, res) => {
     try {
+        // Fetch current user to determine college scope
+        const currentUser = await User.findById(req.user.id);
+        if (!currentUser) {
+            return res.status(401).json({ success: false, msg: 'User not found' });
+        }
+
         const { 
             type, 
             location, 
@@ -22,7 +28,10 @@ router.get('/', async (req, res) => {
         } = req.query;
 
         // Build query
-        let query = { isActive: true };
+        let query = { 
+            isActive: true,
+            collegeName: currentUser.collegeName // Filter by college
+        };
 
         if (type) query.type = type;
         if (locationType) query.locationType = locationType;
@@ -65,7 +74,7 @@ router.get('/', async (req, res) => {
         const skip = (page - 1) * limit;
 
         const opportunities = await Opportunity.find(query)
-            .populate('postedBy', 'name ProfilePicture batchYear profession CompanyName LinkedInURL')
+            .populate('postedBy', 'name profilePicture batchYear profession CompanyName LinkedInURL')
             .sort(sortOption)
             .limit(parseInt(limit))
             .skip(skip)
@@ -97,7 +106,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
     try {
         const opportunity = await Opportunity.findById(req.params.id)
-            .populate('postedBy', 'name ProfilePicture batchYear profession CompanyName LinkedInURL universityEmail');
+            .populate('postedBy', 'name profilePicture batchYear profession CompanyName LinkedInURL universityEmail');
 
         if (!opportunity) {
             return res.status(404).json({ 
@@ -164,6 +173,12 @@ router.post('/', authMiddleware, async (req, res) => {
             });
         }
 
+        // Fetch the posting alumni user to get their collegeName
+        const postingUser = await User.findById(req.user.id);
+        if (!postingUser) {
+             return res.status(404).json({ success: false, msg: 'User not found' });
+        }
+
         const newOpportunity = new Opportunity({
             title,
             description,
@@ -171,6 +186,7 @@ router.post('/', authMiddleware, async (req, res) => {
             company,
             companyLogo: companyLogo || '',
             postedBy: req.user.id,
+            collegeName: postingUser.collegeName, // Save college context
             location,
             locationType: locationType || 'on-site',
             stipend,
@@ -188,7 +204,7 @@ router.post('/', authMiddleware, async (req, res) => {
         const savedOpportunity = await newOpportunity.save();
         
         // Populate alumni details before sending response
-        await savedOpportunity.populate('postedBy', 'name ProfilePicture batchYear profession CompanyName');
+        await savedOpportunity.populate('postedBy', 'name profilePicture batchYear profession CompanyName');
 
         res.status(201).json({
             success: true,

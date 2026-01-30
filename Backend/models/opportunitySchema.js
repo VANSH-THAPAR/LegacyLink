@@ -26,7 +26,11 @@ const opportunitySchema = new mongoose.Schema({
     },
     postedBy: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Alumni',
+        ref: 'User',
+        required: true
+    },
+    collegeName: {
+        type: String, // Added to filter by college
         required: true
     },
     location: {
