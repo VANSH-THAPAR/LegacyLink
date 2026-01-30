@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import MessagesPageWithBackend from './MessagesPageWithBackend';
-
+import EventsPageWithBackend from './EventsPageWithBackend';
 
 import {
 
@@ -2670,20 +2670,7 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
         );
 
       case "Search Events":
-
-        return (
-
-          <SearchEventsPage
-
-            onEventClick={handleEventClick}
-
-            searchTerm={globalSearchTerm}
-
-            onDownloadSummary={downloadPdfSummary} // MODIFIED: Pass handler to the page
-
-          />
-
-        );
+        return <EventsPageWithBackend user={user} />;
 
       case "Messages":
         return <MessagesPageWithBackend user={user} onMentorClick={handleMentorClick} />;

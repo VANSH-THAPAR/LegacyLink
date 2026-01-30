@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, X, Calendar, MapPin, Users, Clock } from 'lucide-react';
+import PostEventModal from './PostEventModal';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -12,6 +13,7 @@ const EventsPageWithBackend = ({ user }) => {
         search: ''
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [showPostModal, setShowPostModal] = useState(false);
 
     useEffect(() => {
         fetchEvents();
@@ -60,29 +62,17 @@ const EventsPageWithBackend = ({ user }) => {
         }
     };
 
-    const createEvent = async (eventData) => {
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/events`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(eventData)
-            });
-
-            if (response.ok) {
-                fetchEvents(); // Refresh events list
-                alert('Event created successfully!');
-            }
-        } catch (error) {
-            console.error('Error creating event:', error);
-        }
-    };
-
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {showPostModal && (
+                <PostEventModal 
+                    onClose={() => setShowPostModal(false)}
+                    onSuccess={() => {
+                        fetchEvents();
+                        // Optional: alert('Event created successfully!'); // logic moved to modal maybe? Modal handles success path.
+                    }}
+                />
+            )}
             <div className="mb-8">
                 <h2 className="text-3xl font-bold text-slate-800">Events Center</h2>
                 <p className="text-slate-500 mt-1">Discover and participate in alumni events and activities.</p>
@@ -108,24 +98,17 @@ const EventsPageWithBackend = ({ user }) => {
                         <option value="Seminar">Seminar</option>
                         <option value="Networking">Networking</option>
                         <option value="Career Fair">Career Fair</option>
-                        <option value="Alumni Meet">Alumni Meet</option>
+                        <option value="Webinar">Webinar</option>
+                        <option value="Career Talk">Career Talk</option>
                     </select>
+                    {user?.role === 'alumni' && (
                     <button
-                        onClick={() => {
-                            const title = prompt('Event Title:');
-                            const description = prompt('Event Description:');
-                            const type = prompt('Event Type (Workshop/Seminar/etc):');
-                            const date = prompt('Event Date (YYYY-MM-DD):');
-                            const location = prompt('Event Location:');
-                            
-                            if (title && description && type && date && location) {
-                                createEvent({ title, description, type, date, location });
-                            }
-                        }}
+                        onClick={() => setShowPostModal(true)}
                         className="w-full bg-cyan-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-cyan-700 transition-colors"
                     >
                         Create Event
                     </button>
+                    )}
                 </div>
             </div>
 
