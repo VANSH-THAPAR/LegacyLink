@@ -2,9 +2,11 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./db/connectDB'); // Assuming you have this file
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const alumniRoutes = require('./routes/alumniRoutes');
+const studentRoutes = require('./routes/studentRoutes'); // We will create this
 const compressionMiddleware = require('./middleware/compression');
 const performanceMiddleware = require('./middleware/performance');
-
 // --- Environment Variable Check ---
 if (!process.env.MONGO_URI || !process.env.JWT_SECRET) {
     console.error('FATAL ERROR: MONGO_URI and JWT_SECRET must be defined.');
@@ -40,10 +42,17 @@ app.use('/api/student-management', require('./routes/student-management'));
 console.log('Student-management routes loaded');
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
+// app.use('/',dashboardRoutes);
+// app.use('/',alumniRoutes);
+// app.use('/',studentRoutes);
+app.use('/api/', dashboardRoutes);
+app.use('/api/', alumniRoutes);
+app.use('/api/', studentRoutes);
 app.use('/api/opportunities', require('./routes/opportunities'));
 console.log('Loading university routes...');
 app.use('/api/university', require('./routes/university'));
 console.log('University routes loaded');
+
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;

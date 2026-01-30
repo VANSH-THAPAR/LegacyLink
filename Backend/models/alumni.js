@@ -1,14 +1,15 @@
+// models/Alumni.js
 const mongoose = require('mongoose');
 
 const alumniSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true // A name should always be required.
+        required: true 
     },
     StudentId: {
         type: String,
         unique: true,
-        required: true,  
+        required: true, 
     },
     universityEmail: {
         type: String,
@@ -37,19 +38,19 @@ const alumniSchema = new mongoose.Schema({
     profession: String,
     CompanyName: String,
     batchYear: {
-        type: Number, // CHANGED: Storing year as a number is better for sorting and queries.
+        type: Number, 
         required: true
     },
     degreeProgram: {
         type: String,
         required: true
     },
-    LinkedInURL: String, // Corrected casing for consistency
+    LinkedInURL: String,
 }, {
     timestamps: true
 });
 
-// Check if model already exists to prevent OverwriteModelError
+// const Alumni = mongoose.model('Alumni', alumniSchema);
 const Alumni = mongoose.models.Alumni || mongoose.model('Alumni', alumniSchema);
 
 module.exports = Alumni;

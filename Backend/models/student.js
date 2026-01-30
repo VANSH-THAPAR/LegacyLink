@@ -1,13 +1,15 @@
+// models/Student.js
 const mongoose = require('mongoose');
+
 const studentSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true // A name should always be required.
+        required: true
     },
     StudentId: {
         type: String,
         unique: true,
-        required: true,  
+        required: true, 
     },
     universityEmail: {
         type: String,
@@ -17,7 +19,7 @@ const studentSchema = new mongoose.Schema({
     personalEmail: {
         type: String,
         unique: true,
-        sparse: true // Enforces uniqueness only if the field exists.
+        sparse: true
     },
     contactNumber: String,
     fatherName: String,
@@ -25,28 +27,32 @@ const studentSchema = new mongoose.Schema({
     nationality: String,
     gender: {
         type: String,
-        enum: ['Male', 'Female', 'Other'] // Ensures data consistency.
+        enum: ['Male', 'Female', 'Other']
     },
     role: {
         type: String,
-        default: 'student' // Sets a default role for new entries.
+        default: 'student'
     },
     ProfilePicture: String,
     dob: Date,
-    profession: String,
-    CompanyName: String,
+    // Students typically don't have these, but you can add them if needed
+    // profession: String, 
+    // CompanyName: String,
+    // LinkedInURL: String,
     batchYear: {
-        type: Number, // CHANGED: Storing year as a number is better for sorting and queries.
+        type: Number,
         required: true
     },
     degreeProgram: {
         type: String,
         required: true
     },
-    LinkedInURL: String, // Corrected casing for consistency
 }, {
     timestamps: true
 });
+
+// const Student = mongoose.model('Student',studentSchema);
 // Check if model already exists to prevent OverwriteModelError
 const Student = mongoose.models.Student || mongoose.model('Student',studentSchema);
+
 module.exports = Student;
