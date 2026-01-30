@@ -951,7 +951,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
     const renderPage = () => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
-            case 'Messages': return <MessagesPage />;
+            case 'Messages': return <MessagesPageWithBackend user={user} />;
             case 'Opportunities': return <OpportunitiesPage user={user} userRole="alumni" />;
             case 'Network': return <NetworkPageWithBackend user={user} />;
             case 'Events': return <EventsPageWithBackend user={user} />;

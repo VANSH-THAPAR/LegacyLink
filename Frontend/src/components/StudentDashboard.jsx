@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import MessagesPageWithBackend from './MessagesPageWithBackend';
+
 
 import {
 
@@ -2683,9 +2685,8 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
 
         );
 
-      case "Messages":
-
-        return <MessagesPage onMentorClick={handleMentorClick} />;
+      case "Messages":
+        return <MessagesPageWithBackend user={user} onMentorClick={handleMentorClick} />;
 case "Opportunities":
         return <OpportunitiesPage user={user} userRole="student" />;
       case "Profile":

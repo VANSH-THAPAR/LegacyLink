@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Send, MoreVertical, Paperclip, Smile } from 'lucide-react';
+import { Send, MoreVertical, Paperclip, Smile, Search } from 'lucide-react';
 import io from 'socket.io-client';
 
 const API_URL = import.meta.env.VITE_backend_url || 'http://localhost:5000/api';
@@ -13,6 +13,8 @@ const MessagesPageWithBackend = ({ user }) => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
     const socketRef = useRef();
     const messagesEndRef = useRef(null);
 
@@ -52,6 +54,39 @@ const MessagesPageWithBackend = ({ user }) => {
             fetchMessages(selectedUser._id);
         }
     }, [selectedUser]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchQuery) {
+                performSearch();
+            } else {
+                setSearchResults([]);
+            }
+        }, 500); // Debounce search
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const performSearch = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/user/search?q=${searchQuery}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSearchResults(data);
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    };
+
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+        setSearchQuery(''); // Clear search on select (optional)
+        setSearchResults([]);
+        // Check if user is already in conversations, if not (it's new), logic handles it fine as we load messages by ID
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,46 +177,89 @@ const MessagesPageWithBackend = ({ user }) => {
             {/* Conversations List */}
             <div className="w-1/3 border-r border-slate-200 flex flex-col bg-slate-50">
                 <div className="p-4 border-b border-slate-200 bg-white">
-                    <h3 className="text-xl font-bold text-slate-800">Messages</h3>
+                    <h3 className="text-xl font-bold text-slate-800 mb-4">Messages</h3>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Search students or alumni..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                        <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2">
-                    {conversations.length === 0 ? (
-                        <div className="p-4 text-center text-slate-500">
-                            No conversations yet
-                        </div>
-                    ) : (
-                        conversations.map(contact => (
-                            <motion.button 
-                                key={contact._id} 
-                                onClick={() => setSelectedUser(contact)} 
-                                className={`w-full text-left p-3 mb-2 rounded-xl flex items-center gap-3 transition-all ${
-                                    selectedUser?._id === contact._id 
-                                        ? 'bg-white shadow-md border-l-4 border-cyan-500' 
-                                        : 'hover:bg-white hover:shadow-sm'
-                                }`}
-                                whileHover={{ scale: 1.01 }}
-                            >
-                                <div className="relative">
-                                    <img 
-                                        src={contact.profilePicture || 'https://via.placeholder.com/40'} 
-                                        className="w-12 h-12 rounded-full object-cover border-2 border-slate-100" 
-                                        alt={contact.name}
-                                    />
-                                </div>
-                                <div className="flex-grow min-w-0">
-                                    <div className="flex justify-between items-baseline">
-                                        <p className="font-semibold text-slate-800 truncate">
-                                            {contact.name}
-                                        </p>
-                                        <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
+                    {searchQuery ? (
+                         searchResults.length === 0 ? (
+                             <div className="p-8 text-center text-slate-500 text-sm">No users found</div>
+                         ) : (
+                             searchResults.map(contact => (
+                                 <motion.button 
+                                     key={contact._id} 
+                                     onClick={() => handleUserSelect(contact)} 
+                                     className="w-full text-left p-3 mb-2 rounded-xl flex items-center gap-3 transition-all hover:bg-white hover:shadow-sm"
+                                     whileHover={{ scale: 1.01 }}
+                                 >
+                                     <div className="relative">
+                                         <img 
+                                             src={contact.profilePicture || 'https://via.placeholder.com/40'} 
+                                             className="w-12 h-12 rounded-full object-cover border-2 border-slate-100" 
+                                             alt={contact.name}
+                                         />
+                                     </div>
+                                     <div className="flex-grow min-w-0">
+                                         <div className="flex justify-between items-baseline">
+                                             <p className="font-semibold text-slate-800 truncate">
+                                                 {contact.name}
+                                             </p>
+                                             <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
+                                         </div>
+                                         <p className="text-xs text-slate-500 truncate mt-0.5">
+                                             {contact.collegeName}
+                                         </p>
+                                     </div>
+                                 </motion.button>
+                             ))
+                         )
+                    ) : ( 
+                        conversations.length === 0 ? (
+                            <div className="p-4 text-center text-slate-500">
+                                No conversations yet
+                            </div>
+                        ) : (
+                            conversations.map(contact => (
+                                <motion.button 
+                                    key={contact._id} 
+                                    onClick={() => setSelectedUser(contact)} 
+                                    className={`w-full text-left p-3 mb-2 rounded-xl flex items-center gap-3 transition-all ${
+                                        selectedUser?._id === contact._id 
+                                            ? 'bg-white shadow-md border-l-4 border-cyan-500' 
+                                            : 'hover:bg-white hover:shadow-sm'
+                                    }`}
+                                    whileHover={{ scale: 1.01 }}
+                                >
+                                    <div className="relative">
+                                        <img 
+                                            src={contact.profilePicture || 'https://via.placeholder.com/40'} 
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-slate-100" 
+                                            alt={contact.name}
+                                        />
                                     </div>
-                                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                                        Click to view chat
-                                    </p>
+                                    <div className="flex-grow min-w-0">
+                                        <div className="flex justify-between items-baseline">
+                                            <p className="font-semibold text-slate-800 truncate">
+                                                {contact.name}
+                                            </p>
+                                            <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                                            Click to view chat
+                                        </p>
                                 </div>
                             </motion.button>
                         ))
-                    )}
+                    ))}
                 </div>
             </div>
 

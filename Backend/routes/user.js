@@ -1,7 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const { Student, Alumni, University } = require('../models/User');
+const { Student, Alumni, University, User } = require('../models/User');
+
+// [GET] /api/user/search - Search for any user (Student/Alumni)
+// Query params: ?q=nameOrCheck
+router.get('/search', authMiddleware, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+
+        // Get current user to filter by college
+        const currentUser = await User.findById(req.user.id);
+        if (!currentUser) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Search by name or rollNumber, exclude current user, match college
+        const query = {
+            _id: { $ne: req.user.id },
+            role: { $in: ['student', 'alumni'] }, // Only chat with people
+            // Ensure we restrict to the same college/university context
+            // Use $exists: true just in case, but strict equality is better if data is clean
+            collegeName: currentUser.collegeName,
+            $or: [
+                { name: { $regex: q, $options: 'i' } },
+                { rollNumber: { $regex: q, $options: 'i' } },
+                { email: { $regex: q, $options: 'i' } }
+            ]
+        };
+
+        const users = await User.find(query)
+            .select('name email role profilePicture rollNumber collegeName');
+
+        res.json(users);
+    } catch (err) {
+        console.error('User search error:', err.message);
+        res.status(500).json({ msg: 'Server Error' });
+    }
+});
 
 // [GET] /api/user/me - Get logged in user's full data
 router.get('/me', authMiddleware, async (req, res) => {
