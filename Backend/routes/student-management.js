@@ -64,8 +64,10 @@ router.post('/upload-preview', authMiddleware, requireUniversityAdmin, upload.si
         const headers = data[0].map(h => h.toString().toLowerCase().trim());
         const rows = data.slice(1);
 
-        // Validate required columns
-        const requiredColumns = ['roll_no', 'name', 'email', 'department', 'year', 'cgpa', 'backlogs'];
+        // Validate required columns (more lenient)
+        const requiredColumns = ['roll_no', 'name', 'email']; // Only critical fields required
+        const optionalColumns = ['department', 'year', 'cgpa', 'backlogs', 'phone'];
+        const allColumns = [...requiredColumns, ...optionalColumns];
         const missingColumns = requiredColumns.filter(col => !headers.includes(col));
         
         if (missingColumns.length > 0) {
@@ -105,35 +107,52 @@ router.post('/upload-preview', authMiddleware, requireUniversityAdmin, upload.si
                 console.log(`Row ${index + 1}:`, rowData);
             }
 
-            // Validate required fields
-            requiredColumns.forEach(col => {
-                if (!rowData[col] || rowData[col].toString().trim() === '') {
-                    isValid = false;
-                    errors.push(`${col} is required`);
+            // Validate required fields (more lenient)
+            allColumns.forEach(col => {
+                const value = rowData[col];
+                if (!value || value.toString().trim() === '') {
+                    // Only mark as invalid if it's a critical field
+                    if (requiredColumns.includes(col)) {
+                        isValid = false;
+                        errors.push(`${col} is required`);
+                    } else {
+                        // For optional fields, set default values
+                        if (col === 'cgpa') rowData[col] = '0.0';
+                        if (col === 'backlogs') rowData[col] = '0';
+                        if (col === 'department') rowData[col] = 'General';
+                        if (col === 'year') rowData[col] = '1st Year';
+                        if (col === 'phone') rowData[col] = '';
+                    }
                 }
             });
 
-            // Validate email format
-            if (rowData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rowData.email.toString())) {
-                isValid = false;
-                errors.push('Invalid email format');
-            }
-
-            // Validate CGPA
-            if (rowData.cgpa) {
-                const cgpa = parseFloat(rowData.cgpa);
-                if (isNaN(cgpa) || cgpa < 0 || cgpa > 10) {
+            // Validate email format (more lenient)
+            if (rowData.email) {
+                const email = rowData.email.toString().trim();
+                // Basic email validation - just check for @ and something after it
+                if (!email.includes('@') || email.split('@').length !== 2 || email.split('@')[1].length < 2) {
                     isValid = false;
-                    errors.push('CGPA must be a number between 0 and 10');
+                    errors.push('Invalid email format');
                 }
             }
 
-            // Validate backlogs
+            // Validate CGPA (more lenient)
+            if (rowData.cgpa) {
+                const cgpa = parseFloat(rowData.cgpa);
+                if (isNaN(cgpa) || cgpa < 0 || cgpa > 10) {
+                    // Instead of marking invalid, set to default
+                    rowData.cgpa = '0.0';
+                    console.log(`Invalid CGPA for row ${index + 2}, setting to 0.0`);
+                }
+            }
+
+            // Validate backlogs (more lenient)
             if (rowData.backlogs) {
                 const backlogs = parseInt(rowData.backlogs);
                 if (isNaN(backlogs) || backlogs < 0) {
-                    isValid = false;
-                    errors.push('Backlogs must be a non-negative integer');
+                    // Instead of marking invalid, set to default
+                    rowData.backlogs = '0';
+                    console.log(`Invalid backlogs for row ${index + 2}, setting to 0`);
                 }
             }
 
@@ -398,6 +417,153 @@ router.get('/stats', authMiddleware, requireUniversityAdmin, async (req, res) =>
     } catch (error) {
         console.error('Stats error:', error.message);
         res.status(500).json({ msg: 'Error fetching statistics.' });
+    }
+});
+
+// [GET] /api/student-management/all - Get all students for management
+router.get('/all', authMiddleware, requireUniversityAdmin, async (req, res) => {
+    try {
+        const { page = 1, limit = 50, search, department, year } = req.query;
+        
+        // Build query
+        const query = { role: 'student' };
+        
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { rollNumber: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        if (department) {
+            query.course = department;
+        }
+        
+        if (year) {
+            query.year = year;
+        }
+        
+        // Get students with pagination
+        const students = await Student.find(query)
+            .select('-password')
+            .sort({ name: 1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+        
+        // Get total count for pagination
+        const total = await Student.countDocuments(query);
+        
+        res.json({
+            students,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+        
+    } catch (error) {
+        console.error('Get all students error:', error.message);
+        res.status(500).json({ msg: 'Error fetching students.' });
+    }
+});
+
+// [PUT] /api/student-management/update/:studentId - Update student data
+router.put('/update/:studentId', authMiddleware, requireUniversityAdmin, async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const updateData = req.body;
+        
+        // Validate student ID
+        if (!studentId) {
+            return res.status(400).json({ msg: 'Student ID is required.' });
+        }
+        
+        // Find student
+        const student = await Student.findOne({ _id: studentId, role: 'student' });
+        if (!student) {
+            return res.status(404).json({ msg: 'Student not found.' });
+        }
+        
+        // Validate and prepare update data
+        const allowedFields = ['name', 'email', 'course', 'year', 'cgpa', 'backlogs', 'phone', 'semester', 'interests'];
+        const updates = {};
+        
+        for (const field of allowedFields) {
+            if (updateData[field] !== undefined) {
+                if (field === 'cgpa') {
+                    const cgpa = parseFloat(updateData[field]);
+                    if (isNaN(cgpa) || cgpa < 0 || cgpa > 10) {
+                        return res.status(400).json({ msg: 'CGPA must be a number between 0 and 10.' });
+                    }
+                    updates[field] = cgpa;
+                } else if (field === 'backlogs') {
+                    const backlogs = parseInt(updateData[field]);
+                    if (isNaN(backlogs) || backlogs < 0) {
+                        return res.status(400).json({ msg: 'Backlogs must be a non-negative integer.' });
+                    }
+                    updates[field] = backlogs;
+                } else if (field === 'email') {
+                    // Check if email is already used by another student
+                    const existingStudent = await Student.findOne({ 
+                        email: updateData[field], 
+                        _id: { $ne: studentId },
+                        role: 'student' 
+                    });
+                    if (existingStudent) {
+                        return res.status(400).json({ msg: 'Email is already in use by another student.' });
+                    }
+                    updates[field] = updateData[field].toLowerCase().trim();
+                } else {
+                    updates[field] = updateData[field];
+                }
+            }
+        }
+        
+        // Update student
+        const updatedStudent = await Student.findByIdAndUpdate(
+            studentId,
+            { $set: updates },
+            { new: true, runValidators: true }
+        ).select('-password');
+        
+        res.json({
+            msg: 'Student updated successfully.',
+            student: updatedStudent
+        });
+        
+    } catch (error) {
+        console.error('Update student error:', error.message);
+        if (error.code === 11000) {
+            res.status(400).json({ msg: 'Duplicate field value.' });
+        } else {
+            res.status(500).json({ msg: 'Error updating student.' });
+        }
+    }
+});
+
+// [DELETE] /api/student-management/delete/:studentId - Delete a student
+router.delete('/delete/:studentId', authMiddleware, requireUniversityAdmin, async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        
+        if (!studentId) {
+            return res.status(400).json({ msg: 'Student ID is required.' });
+        }
+        
+        const student = await Student.findOneAndDelete({ _id: studentId, role: 'student' });
+        
+        if (!student) {
+            return res.status(404).json({ msg: 'Student not found.' });
+        }
+        
+        res.json({ msg: 'Student deleted successfully.' });
+        
+    } catch (error) {
+        console.error('Delete student error:', error.message);
+        res.status(500).json({ msg: 'Error deleting student.' });
     }
 });
 
