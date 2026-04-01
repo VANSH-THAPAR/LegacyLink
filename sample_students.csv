@@ -1,0 +1,82 @@
+roll_no,name,email,department,year,cgpa,backlogs,phone
+2023001,John Doe,john.doe@university.edu,Computer Science,3rd Year,8.5,0,9876543210
+2023002,Jane Smith,jane.smith@university.edu,Electronics,2nd Year,7.8,1,9876543211
+2023003,Bob Johnson,bob.johnson@university.edu,Mechanical,4th Year,6.2,2,9876543212
+2023004,Alice Williams,alice.williams@university.edu,Computer Science,3rd Year,9.1,0,9876543213
+2023005,Charlie Brown,charlie.brown@university.edu,Civil,1st Year,7.5,0,9876543214
+2023006,Emma Davis,emma.davis@university.edu,Electrical,2nd Year,8.9,0,9876543215
+2023007,Michael Wilson,michael.wilson@university.edu,Computer Science,4th Year,7.2,1,9876543216
+2023008,Sarah Miller,sarah.miller@university.edu,Mechanical,3rd Year,6.8,0,9876543217
+2023009,James Moore,james.moore@university.edu,Civil,2nd Year,8.3,1,9876543218
+2023010,Olivia Taylor,olivia.taylor@university.edu,Electronics,4th Year,9.5,0,9876543219
+2023011,William Anderson,william.anderson@university.edu,Electrical,3rd Year,7.6,2,9876543220
+2023012,Sophia Thomas,sophia.thomas@university.edu,Computer Science,1st Year,8.1,0,9876543221
+2023013,Robert Jackson,robert.jackson@university.edu,Mechanical,2nd Year,7.4,1,9876543222
+2023014,Isabella White,isabella.white@university.edu,Civil,3rd Year,9.2,0,9876543223
+2023015,David Harris,david.harris@university.edu,Electronics,1st Year,6.9,0,9876543224
+2023016,Mia Martin,mia.martin@university.edu,Electrical,4th Year,8.7,1,9876543225
+2023017,Joseph Thompson,joseph.thompson@university.edu,Computer Science,2nd Year,7.8,0,9876543226
+2023018,Charlotte Garcia,charlotte.garcia@university.edu,Mechanical,3rd Year,8.4,2,9876543227
+2023019,Andrew Martinez,andrew.martinez@university.edu,Civil,4th Year,7.1,1,9876543228
+2023020,Abigail Robinson,abigail.robinson@university.edu,Electronics,2nd Year,9.0,0,9876543229
+2023021,Christopher Clark,christopher.clark@university.edu,Electrical,1st Year,6.5,0,9876543230
+2023022,Emily Rodriguez,emily.rodriguez@university.edu,Computer Science,3rd Year,8.2,1,9876543231
+2023023,Daniel Lewis,daniel.lewis@university.edu,Mechanical,4th Year,7.9,0,9876543232
+2023024,Elizabeth Lee,elizabeth.lee@university.edu,Civil,2nd Year,8.6,2,9876543233
+2023025,Matthew Walker,matthew.walker@university.edu,Electronics,3rd Year,7.3,1,9876543234
+2023026,Jennifer Hall,jennifer.hall@university.edu,Electrical,4th Year,9.3,0,9876543235
+2023027,Joshua Allen,joshua.allen@university.edu,Computer Science,1st Year,6.7,0,9876543236
+2023028,Ashley Young,ashley.young@university.edu,Mechanical,2nd Year,8.0,1,9876543237
+2023029,Kevin Hernandez,kevin.hernandez@university.edu,Civil,3rd Year,7.7,0,9876543238
+2023030,Stephanie King,stephanie.king@university.edu,Electronics,4th Year,8.8,2,9876543239
+2023031,Brian Wright,brian.wright@university.edu,Electrical,2nd Year,7.0,1,9876543240
+2023032,Kimberly Lopez,kimberly.lopez@university.edu,Computer Science,3rd Year,9.4,0,9876543241
+2023033,Ryan Hill,ryan.hill@university.edu,Mechanical,1st Year,6.4,0,9876543242
+2023034,Nancy Scott,nancy.scott@university.edu,Civil,4th Year,8.1,1,9876543243
+2023035,Steven Green,steven.green@university.edu,Electronics,2nd Year,7.5,2,9876543244
+2023036,Jessica Adams,jessica.adams@university.edu,Electrical,3rd Year,9.6,0,9876543245
+2023037,Edward Baker,edward.baker@university.edu,Computer Science,4th Year,6.8,1,9876543246
+2023038,Lisa Nelson,lisa.nelson@university.edu,Mechanical,2nd Year,8.5,0,9876543247
+2023039,Donald Carter,donald.carter@university.edu,Civil,3rd Year,7.2,1,9876543248
+2023040,Mark Mitchell,mark.mitchell@university.edu,Electronics,1st Year,9.1,0,9876543249
+2023041,Michelle Perez,michelle.perez@university.edu,Electrical,4th Year,7.8,2,9876543250
+2023042,Paul Roberts,paul.roberts@university.edu,Computer Science,2nd Year,8.3,1,9876543251
+2023043,Linda Turner,linda.turner@university.edu,Mechanical,3rd Year,6.9,0,9876543252
+2023044,George Phillips,george.phillips@university.edu,Civil,4th Year,8.7,1,9876543253
+2023045,Dorothy Campbell,dorothy.campbell@university.edu,Electronics,2nd Year,7.4,0,9876543254
+2023046,Richard Parker,richard.parker@university.edu,Electrical,3rd Year,9.8,0,9876543255
+2023047,Patricia Evans,patricia.evans@university.edu,Computer Science,1st Year,6.6,1,9876543256
+2023048,Thomas Edwards,thomas.edwards@university.edu,Mechanical,4th Year,8.0,2,9876543257
+2023049,Betty Collins,betty.collins@university.edu,Civil,2nd Year,7.9,1,9876543258
+2023050,Ronald Stewart,ronald.stewart@university.edu,Electronics,3rd Year,9.0,0,9876543259
+2023051,Sandra Morris,sandra.morris@university.edu,Electrical,4th Year,7.1,0,9876543260
+2023052,Kenneth Rogers,kenneth.rogers@university.edu,Computer Science,2nd Year,8.4,1,9876543261
+2023053,Helen Reed,helen.reed@university.edu,Mechanical,3rd Year,6.7,2,9876543262
+2023054,Joseph Cook,joseph.cook@university.edu,Civil,1st Year,9.2,0,9876543263
+2023055,Donald Morgan,donald.morgan@university.edu,Electronics,4th Year,7.6,1,9876543264
+2023056,Maria Bell,maria.bell@university.edu,Electrical,2nd Year,8.9,0,9876543265
+2023057,Ronald Murphy,ronald.murphy@university.edu,Computer Science,3rd Year,7.3,1,9876543266
+2023058,Linda Bailey,linda.bailey@university.edu,Mechanical,4th Year,9.5,0,9876543267
+2023059,William Rivera,william.rivera@university.edu,Civil,2nd Year,6.8,2,9876543268
+2023060,Barbara Cooper,barbara.cooper@university.edu,Electronics,1st Year,8.2,1,9876543269
+2023061,David Richardson,david.richardson@university.edu,Electrical,3rd Year,7.7,0,9876543270
+2023062,Susan Cox,susan.cox@university.edu,Computer Science,4th Year,9.1,0,9876543271
+2023063,James Ward,james.ward@university.edu,Mechanical,2nd Year,6.5,1,9876543272
+2023064,Karen Torres,karen.torres@university.edu,Civil,3rd Year,8.6,2,9876543273
+2023065,Robert Peterson,robert.peterson@university.edu,Electronics,4th Year,7.4,1,9876543274
+2023066,Nancy Gray,nancy.gray@university.edu,Electrical,1st Year,9.3,0,9876543275
+2023067,Lisa Ramirez,lisa.ramirez@university.edu,Computer Science,2nd Year,7.0,0,9876543276
+2023068,Steven James,steven.james@university.edu,Mechanical,3rd Year,8.1,1,9876543277
+2023069,Mary Watson,mary.watson@university.edu,Civil,4th Year,6.9,2,9876543278
+2023070,Joseph Brooks,joseph.brooks@university.edu,Electronics,2nd Year,8.8,1,9876543279
+2023071,Jennifer Kelly,jennifer.kelly@university.edu,Electrical,3rd Year,7.5,0,9876543280
+2023072,Charles Sanders,charles.sanders@university.edu,Computer Science,1st Year,9.4,0,9876543281
+2023073,Patricia Price,patricia.price@university.edu,Mechanical,4th Year,7.2,1,9876543282
+2023074,Thomas Bennett,thomas.bennett@university.edu,Civil,2nd Year,8.0,2,9876543283
+2023075,Margaret Wood,margaret.wood@university.edu,Electronics,3rd Year,6.7,1,9876543284
+2023076,Invalid Student,invalid.email,Computer Science,3rd Year,11.0,-1,9876543285
+2023077,Duplicate Test,duplicate.test@university.edu,Electronics,2nd Year,7.8,0,9876543286
+2023077,Duplicate Test,duplicate.test@university.edu,Electronics,2nd Year,7.8,0,9876543286
+2023078,,no.email@university.edu,Mechanical,4th Year,8.5,1,9876543287
+2023079,Missing Email,,Electrical,3rd Year,7.3,0,9876543288
+2023080,Wrong Year,wrong.year@university.edu,Computer Science,5th Year,8.2,1,9876543289

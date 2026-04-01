@@ -1,8 +1,8 @@
-// src/components/AlumniFormModal.jsx
+// src/components/StudentFormModal.jsx
 import React, { useState, useEffect } from 'react';
 
 // Reusable Input Field
-const InputField = ({ label, name, value, onChange, type = 'text', required = false }) => (
+const InputField = ({ label, name, value, onChange, type = 'text', required = false, disabled = false }) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-slate-700">{label}</label>
         <input
@@ -12,20 +12,19 @@ const InputField = ({ label, name, value, onChange, type = 'text', required = fa
             value={value || ''}
             onChange={onChange}
             required={required}
+            disabled={disabled}
             className="form-input mt-1"
         />
     </div>
 );
 
-const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
+const StudentFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
     const [formData, setFormData] = useState({});
 
     useEffect(() => {
-        // When initialData (for editing) changes, update the form
         if (initialData) {
             setFormData(initialData);
         } else {
-            // Clear form for 'Add'
             setFormData({});
         }
     }, [initialData]);
@@ -48,7 +47,7 @@ const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
         <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50 flex justify-center items-center p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-slate-800">{isEditing ? 'Edit Alumni' : 'Add New Alumni'}</h2>
+                    <h2 className="text-2xl font-bold text-slate-800">{isEditing ? 'Edit Student' : 'Add New Student'}</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-3xl">&times;</button>
                 </div>
                 
@@ -78,11 +77,6 @@ const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
                         </div>
                         <InputField label="Date of Birth" name="dob" value={formData.dob ? formData.dob.split('T')[0] : ''} onChange={handleChange} type="date" />
                         <InputField label="Nationality" name="nationality" value={formData.nationality} onChange={handleChange} />
-                        
-                        {/* Professional Info */}
-                        <InputField label="Profession" name="profession" value={formData.profession} onChange={handleChange} />
-                        <InputField label="Company Name" name="CompanyName" value={formData.CompanyName} onChange={handleChange} />
-                        <InputField label="LinkedIn URL" name="LinkedInURL" value={formData.LinkedInURL} onChange={handleChange} />
                     </div>
 
                     <div className="p-4 bg-white mt-8 flex justify-end space-x-3">
@@ -90,7 +84,7 @@ const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
                             Cancel
                         </button>
                         <button type="submit" className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm">
-                            {isEditing ? 'Save Changes' : 'Add Alumni'}
+                            {isEditing ? 'Save Changes' : 'Add Student'}
                         </button>
                     </div>
                 </form>
@@ -99,4 +93,4 @@ const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
     );
 };
 
-export default AlumniFormModal;
+export default StudentFormModal;

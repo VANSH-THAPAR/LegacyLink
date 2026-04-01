@@ -1,3 +1,4 @@
+// src/components/AlumniDetailModal.jsx
 import React from 'react';
 
 // A small helper component to keep the layout clean
@@ -22,7 +23,7 @@ const AlumniDetailModal = ({ isOpen, onClose, alumnus }) => {
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-slate-800">Alumni Profile</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-3xl">&times;</button>
                 </div>
 
                 <div className="flex-grow overflow-y-auto p-8">
