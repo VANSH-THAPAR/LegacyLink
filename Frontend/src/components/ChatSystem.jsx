@@ -74,37 +74,33 @@ const ChatSystem = ({ user }) => {
 
         socketManager.on('connectionChange', handleConnectionChange);
 
-        // Listen for online users
-        socketManager.on('onlineUsers', (users) => {
+        // Define handlers for cleanup
+        const handleOnlineUsers = (users) => {
             console.log('📥 Received online users update:', users.length, 'users');
-            console.log('👥 Online users list:', users);
             setOnlineUsers(users);
-        });
-
-        // Listen for online users count
-        socketManager.on('onlineUsersCount', (count) => {
+        };
+        const handleOnlineUsersCount = (count) => {
             console.log('📥 Received online users count:', count);
-        });
-
-        // Listen for new messages
-        socketManager.on('receiveMessage', (message) => {
+        };
+        const handleReceiveMessage = (message) => {
             if (selectedConversation && selectedConversation._id === message.conversationId) {
-                setMessages(prev => [...prev, message]);
+                setMessages(prev => {
+                    // Prevent duplicates
+                    if (prev.some(m => m._id === message._id)) return prev;
+                    return [...prev, message];
+                });
                 scrollToBottom();
             } else {
                 // Update conversation list
                 fetchConversations();
             }
-        });
-
-        // Listen for typing indicators
-        socketManager.on('userTyping', ({ user: typingUser, conversationId }) => {
+        };
+        const handleUserTyping = ({ user: typingUser, conversationId }) => {
             if (selectedConversation && selectedConversation._id === conversationId) {
                 setTypingUsers(prev => new Set([...prev, typingUser.id]));
             }
-        });
-
-        socketManager.on('userStoppedTyping', ({ user: typingUser, conversationId }) => {
+        };
+        const handleUserStoppedTyping = ({ user: typingUser, conversationId }) => {
             if (selectedConversation && selectedConversation._id === conversationId) {
                 setTypingUsers(prev => {
                     const newSet = new Set(prev);
@@ -112,28 +108,40 @@ const ChatSystem = ({ user }) => {
                     return newSet;
                 });
             }
-        });
-
-        // Listen for conversation updates
-        socketManager.on('conversationUpdated', (update) => {
-            setConversations(prev => prev.map(conv => 
-                conv._id === update.conversationId 
+        };
+        const handleConversationUpdated = (update) => {
+            setConversations(prev => prev.map(conv =>
+                conv._id === update.conversationId
                     ? { ...conv, ...update }
                     : conv
             ));
-        });
-
-        // Listen for message read receipts
-        socketManager.on('messageRead', ({ messageId, userId }) => {
-            setMessages(prev => prev.map(msg => 
-                msg._id === messageId 
+        };
+        const handleMessageRead = ({ messageId, userId }) => {
+            setMessages(prev => prev.map(msg =>
+                msg._id === messageId
                     ? { ...msg, readBy: [...msg.readBy, { userId, readAt: new Date() }] }
                     : msg
             ));
-        });
+        };
+
+        // Attach listeners
+        socketManager.on('onlineUsers', handleOnlineUsers);
+        socketManager.on('onlineUsersCount', handleOnlineUsersCount);
+        socketManager.on('receiveMessage', handleReceiveMessage);
+        socketManager.on('userTyping', handleUserTyping);
+        socketManager.on('userStoppedTyping', handleUserStoppedTyping);
+        socketManager.on('conversationUpdated', handleConversationUpdated);
+        socketManager.on('messageRead', handleMessageRead);
 
         return () => {
             socketManager.off('connectionChange', handleConnectionChange);
+            socketManager.off('onlineUsers', handleOnlineUsers);
+            socketManager.off('onlineUsersCount', handleOnlineUsersCount);
+            socketManager.off('receiveMessage', handleReceiveMessage);
+            socketManager.off('userTyping', handleUserTyping);
+            socketManager.off('userStoppedTyping', handleUserStoppedTyping);
+            socketManager.off('conversationUpdated', handleConversationUpdated);
+            socketManager.off('messageRead', handleMessageRead);
             // Don't disconnect on unmount as it's a singleton
         };
     }, [user, selectedConversation]);
@@ -371,10 +379,32 @@ const ChatSystem = ({ user }) => {
 
     // Format message time
     const formatMessageTime = (timestamp) => {
-        return new Date(timestamp).toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
+        if (!timestamp) return '';
+        return new Date(timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
         });
+    };
+
+    // Format message date
+    const formatMessageDate = (timestamp) => {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) {
+            return 'Today';
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return 'Yesterday';
+        } else {
+            return date.toLocaleDateString([], { 
+                month: 'short', 
+                day: 'numeric', 
+                year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined 
+            });
+        }
     };
 
     // Check if user is online
@@ -628,44 +658,56 @@ const ChatSystem = ({ user }) => {
                             ) : (
                                 <div className="space-y-4">
                                     {messages.map((message, index) => {
-                                        const isOwn = message.senderId._id === user.id;
-                                        const isRead = message.readBy.length > 1;
-                                        
+                                        const currentMsgDate = new Date(message.createdAt).toDateString();
+                                        const prevMsgDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
+                                        const showDate = currentMsgDate !== prevMsgDate;
+
+                                        const isOwn = String(message.senderId?._id || message.senderId) === String(userId);
+                                        const isRead = message.readBy && message.readBy.length > 1;
+
                                         return (
-                                            <motion.div 
-                                                key={message._id || index}
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                                            >
-                                                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                                                    isOwn 
-                                                        ? 'bg-cyan-600 text-white' 
-                                                        : 'bg-white text-slate-800 border border-slate-200'
-                                                }`}>
-                                                    <p className="break-words">{message.content}</p>
-                                                    
-                                                    <div className={`flex items-center justify-between mt-1 gap-2 ${
-                                                        isOwn ? 'text-cyan-100' : 'text-slate-400'
-                                                    }`}>
-                                                        <p className="text-xs">
-                                                            {formatMessageTime(message.createdAt)}
-                                                        </p>
-                                                        {isOwn && (
-                                                            <div className="flex items-center">
-                                                                {isRead ? (
-                                                                    <CheckCheck className="w-4 h-4" />
-                                                                ) : (
-                                                                    <Check className="w-4 h-4" />
-                                                                )}
-                                                            </div>
-                                                        )}
+                                            <React.Fragment key={message._id || index}>
+                                                {showDate && (
+                                                    <div className="flex justify-center my-4">
+                                                        <div className="bg-slate-100 text-slate-500 text-xs font-medium px-3 py-1 rounded-full shadow-sm">
+                                                            {formatMessageDate(message.createdAt)}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </motion.div>
+                                                )}
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                                                >
+                                                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                                        isOwn
+                                                            ? 'bg-cyan-600 text-white shadow-md'
+                                                            : 'bg-white text-slate-800 border border-slate-200 shadow-sm'
+                                                    }`}>
+                                                        <p className="break-words">{message.content}</p>
+
+                                                        <div className={`flex items-center justify-end mt-1 gap-2 ${
+                                                            isOwn ? 'text-cyan-100' : 'text-slate-400'
+                                                        }`}>
+                                                            <p className="text-[10px] uppercase font-semibold tracking-wider">
+                                                                {formatMessageTime(message.createdAt)}
+                                                            </p>
+                                                            {isOwn && (
+                                                                <div className="flex items-center">
+                                                                    {isRead ? (
+                                                                        <CheckCheck className="w-3.5 h-3.5 text-cyan-200" />
+                                                                    ) : (
+                                                                        <Check className="w-3.5 h-3.5 text-cyan-200" />
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            </React.Fragment>
                                         );
                                     })}
-                                    
+
                                     {/* Typing Indicator */}
                                     {typingUsers.size > 0 && (
                                         <motion.div

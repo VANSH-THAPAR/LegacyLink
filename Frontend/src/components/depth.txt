@@ -1,0 +1,790 @@
+   1 |  0 | import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+   2 |  0 | import { motion, AnimatePresence } from 'framer-motion';
+   3 |  1 | import { 
+   4 |  1 |     Send, 
+   5 |  1 |     MoreVertical, 
+   6 |  1 |     Paperclip, 
+   7 |  1 |     Smile, 
+   8 |  1 |     Search, 
+   9 |  1 |     Phone, 
+  10 |  1 |     Video, 
+  11 |  1 |     Info, 
+  12 |  1 |     Check, 
+  13 |  1 |     CheckCheck,
+  14 |  1 |     Circle,
+  15 |  1 |     User,
+  16 |  1 |     MessageCircle,
+  17 |  1 |     Users
+  18 |  0 | } from 'lucide-react';
+  19 |  0 | import debounce from 'lodash/debounce';
+  20 |  0 | import socketManager from '../utils/socket';
+  21 |  0 | 
+  22 |  0 | const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  23 |  0 | const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+  24 |  0 | 
+  25 |  1 | const ChatSystem = ({ user }) => {
+  26 |  1 |     console.log('🔍 ChatSystem received user prop:', user);
+  27 |  1 |     console.log('🔍 User object structure:', JSON.stringify(user, null, 2));
+  28 |  1 |     
+  29 |  1 |     // Ensure user object is properly accessed
+  30 |  1 |     const userId = user?._id || user.id || user.userId;
+  31 |  1 |     console.log('✅ Extracted user ID:', userId);
+  32 |  1 |     
+  33 |  1 |     const [conversations, setConversations] = useState([]);
+  34 |  1 |     const [selectedConversation, setSelectedConversation] = useState(null);
+  35 |  1 |     const [messages, setMessages] = useState([]);
+  36 |  1 |     const [newMessage, setNewMessage] = useState('');
+  37 |  1 |     const [isLoading, setIsLoading] = useState(true);
+  38 |  1 |     const [searchQuery, setSearchQuery] = useState('');
+  39 |  1 |     const [searchResults, setSearchResults] = useState([]);
+  40 |  1 |     const [showSearch, setShowSearch] = useState(false);
+  41 |  1 |     const [onlineUsers, setOnlineUsers] = useState([]);
+  42 |  1 |     const [typingUsers, setTypingUsers] = useState(new Set());
+  43 |  1 |     const [isTyping, setIsTyping] = useState(false);
+  44 |  1 |     const [unreadCount, setUnreadCount] = useState(0);
+  45 |  1 |     const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  46 |  1 |     
+  47 |  1 |     const socketRef = useRef(null);
+  48 |  1 |     const messagesEndRef = useRef(null);
+  49 |  1 |     const typingTimeoutRef = useRef(null);
+  50 |  1 | 
+  51 |  1 |     // Initialize socket connection
+  52 |  2 |     useEffect(() => {
+  53 |  2 |         const token = localStorage.getItem('token');
+  54 |  2 |         if (!token || !user) return;
+  55 |  2 | 
+  56 |  2 |         // Add current user to online users as fallback
+  57 |  3 |         setOnlineUsers([{
+  58 |  3 |             userId: user.id,
+  59 |  3 |             name: user.name || user.profile?.name || 'You',
+  60 |  3 |             role: user.role || user.profile?.role,
+  61 |  3 |             joinedAt: new Date()
+  62 |  2 |         }]);
+  63 |  2 | 
+  64 |  2 |         const socket = socketManager.connect(token, SOCKET_URL);
+  65 |  2 |         socketRef.current = socket;
+  66 |  2 | 
+  67 |  2 |         // Set initial connection status immediately
+  68 |  2 |         setConnectionStatus(socketManager.isConnected() ? 'connected' : 'disconnected');
+  69 |  2 | 
+  70 |  2 |         // Connection status
+  71 |  3 |         const handleConnectionChange = (isConnected) => {
+  72 |  3 |             setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+  73 |  2 |         };
+  74 |  2 | 
+  75 |  2 |         socketManager.on('connectionChange', handleConnectionChange);
+  76 |  2 | 
+  77 |  2 |         // Define handlers for cleanup
+  78 |  3 |         const handleOnlineUsers = (users) => {
+  79 |  3 |             console.log('📥 Received online users update:', users.length, 'users');
+  80 |  3 |             setOnlineUsers(users);
+  81 |  2 |         };
+  82 |  3 |         const handleOnlineUsersCount = (count) => {
+  83 |  3 |             console.log('📥 Received online users count:', count);
+  84 |  2 |         };
+  85 |  3 |         const handleReceiveMessage = (message) => {
+  86 |  4 |             if (selectedConversation && selectedConversation._id === message.conversationId) {
+  87 |  5 |                 setMessages(prev => {
+  88 |  5 |                     // Prevent duplicates
+  89 |  5 |                     if (prev.some(m => m._id === message._id)) return prev;
+  90 |  5 |                     return [...prev, message];
+  91 |  4 |                 });
+  92 |  4 |                 scrollToBottom();
+  93 |  4 |             } else {
+  94 |  4 |                 // Update conversation list
+  95 |  4 |                 fetchConversations();
+  96 |  3 |             }
+  97 |  2 |         };
+  98 |  3 |         const handleUserTyping = ({ user: typingUser, conversationId }) => {
+  99 |  4 |             if (selectedConversation && selectedConversation._id === conversationId) {
+ 100 |  4 |                 setTypingUsers(prev => new Set([...prev, typingUser.id]));
+ 101 |  3 |             }
+ 102 |  2 |         };
+ 103 |  3 |         const handleUserStoppedTyping = ({ user: typingUser, conversationId }) => {
+ 104 |  4 |             if (selectedConversation && selectedConversation._id === conversationId) {
+ 105 |  5 |                 setTypingUsers(prev => {
+ 106 |  5 |                     const newSet = new Set(prev);
+ 107 |  5 |                     newSet.delete(typingUser.id);
+ 108 |  5 |                     return newSet;
+ 109 |  4 |                 });
+ 110 |  3 |             }
+ 111 |  2 |         };
+ 112 |  3 |         const handleConversationUpdated = (update) => {
+ 113 |  3 |             setConversations(prev => prev.map(conv =>
+ 114 |  3 |                 conv._id === update.conversationId
+ 115 |  3 |                     ? { ...conv, ...update }
+ 116 |  3 |                     : conv
+ 117 |  3 |             ));
+ 118 |  2 |         };
+ 119 |  3 |         const handleMessageRead = ({ messageId, userId }) => {
+ 120 |  3 |             setMessages(prev => prev.map(msg =>
+ 121 |  3 |                 msg._id === messageId
+ 122 |  3 |                     ? { ...msg, readBy: [...msg.readBy, { userId, readAt: new Date() }] }
+ 123 |  3 |                     : msg
+ 124 |  3 |             ));
+ 125 |  2 |         };
+ 126 |  2 | 
+ 127 |  2 |         // Attach listeners
+ 128 |  2 |         socketManager.on('onlineUsers', handleOnlineUsers);
+ 129 |  2 |         socketManager.on('onlineUsersCount', handleOnlineUsersCount);
+ 130 |  2 |         socketManager.on('receiveMessage', handleReceiveMessage);
+ 131 |  2 |         socketManager.on('userTyping', handleUserTyping);
+ 132 |  2 |         socketManager.on('userStoppedTyping', handleUserStoppedTyping);
+ 133 |  2 |         socketManager.on('conversationUpdated', handleConversationUpdated);
+ 134 |  2 |         socketManager.on('messageRead', handleMessageRead);
+ 135 |  2 | 
+ 136 |  3 |         return () => {
+ 137 |  3 |             socketManager.off('connectionChange', handleConnectionChange);
+ 138 |  3 |             socketManager.off('onlineUsers', handleOnlineUsers);
+ 139 |  3 |             socketManager.off('onlineUsersCount', handleOnlineUsersCount);
+ 140 |  3 |             socketManager.off('receiveMessage', handleReceiveMessage);
+ 141 |  3 |             socketManager.off('userTyping', handleUserTyping);
+ 142 |  3 |             socketManager.off('userStoppedTyping', handleUserStoppedTyping);
+ 143 |  3 |             socketManager.off('conversationUpdated', handleConversationUpdated);
+ 144 |  3 |             socketManager.off('messageRead', handleMessageRead);
+ 145 |  3 |             // Don't disconnect on unmount as it's a singleton
+ 146 |  2 |         };
+ 147 |  1 |     }, [user, selectedConversation]);
+ 148 |  1 | 
+ 149 |  1 |     // Fetch conversations
+ 150 |  2 |     const fetchConversations = useCallback(async () => {
+ 151 |  3 |         try {
+ 152 |  3 |             const token = localStorage.getItem('token');
+ 153 |  3 |             console.log('🔄 Fetching conversations with token:', token ? 'Token exists' : 'No token');
+ 154 |  3 |             
+ 155 |  4 |             const response = await fetch(`${API_URL}/messages/conversations`, {
+ 156 |  4 |                 headers: { 'Authorization': `Bearer ${token}` }
+ 157 |  3 |             });
+ 158 |  3 |             
+ 159 |  3 |             console.log('📥 Conversations response status:', response.status);
+ 160 |  3 |             
+ 161 |  4 |             if (response.ok) {
+ 162 |  4 |                 const data = await response.json();
+ 163 |  4 |                 console.log('📥 Conversations data received:', data);
+ 164 |  4 |                 console.log('📝 Current conversations count:', data.conversations?.length || 0);
+ 165 |  4 |                 console.log('📝 Setting conversations state:', data.conversations);
+ 166 |  4 |                 setConversations(data.conversations || []);
+ 167 |  4 |             } else {
+ 168 |  4 |                 const errorData = await response.json();
+ 169 |  4 |                 console.error('❌ Conversations API error:', errorData);
+ 170 |  4 |                 console.error('❌ Response text:', await response.text());
+ 171 |  3 |             }
+ 172 |  3 |         } catch (error) {
+ 173 |  3 |             console.error('💥 Error fetching conversations:', error);
+ 174 |  3 |         } finally {
+ 175 |  3 |             setIsLoading(false);
+ 176 |  2 |         }
+ 177 |  1 |     }, []);
+ 178 |  1 | 
+ 179 |  1 |     // Fetch messages for selected conversation
+ 180 |  2 |     const fetchMessages = useCallback(async (conversationId) => {
+ 181 |  3 |         try {
+ 182 |  3 |             const token = localStorage.getItem('token');
+ 183 |  4 |             const response = await fetch(`${API_URL}/messages/conversation/${conversationId}`, {
+ 184 |  4 |                 headers: { 'Authorization': `Bearer ${token}` }
+ 185 |  3 |             });
+ 186 |  3 |             
+ 187 |  4 |             if (response.ok) {
+ 188 |  4 |                 const data = await response.json();
+ 189 |  4 |                 setMessages(data.messages || []);
+ 190 |  4 |                 scrollToBottom();
+ 191 |  4 |                 
+ 192 |  4 |                 // Join conversation room
+ 193 |  4 |                 socketManager.emit('joinConversation', conversationId);
+ 194 |  3 |             }
+ 195 |  3 |         } catch (error) {
+ 196 |  3 |             console.error('Error fetching messages:', error);
+ 197 |  2 |         }
+ 198 |  1 |     }, []);
+ 199 |  1 | 
+ 200 |  1 |     // Search users
+ 201 |  2 |     const searchUsers = useCallback(debounce(async (query) => {
+ 202 |  3 |         if (!query.trim()) {
+ 203 |  3 |             setSearchResults([]);
+ 204 |  3 |             return;
+ 205 |  2 |         }
+ 206 |  2 | 
+ 207 |  2 |         console.log('Searching for users with query:', query);
+ 208 |  2 |         
+ 209 |  3 |         try {
+ 210 |  3 |             const token = localStorage.getItem('token');
+ 211 |  4 |             const response = await fetch(`${API_URL}/messages/search-users?query=${encodeURIComponent(query)}`, {
+ 212 |  4 |                 headers: { 'Authorization': `Bearer ${token}` }
+ 213 |  3 |             });
+ 214 |  3 |             
+ 215 |  3 |             console.log('Search response status:', response.status);
+ 216 |  3 |             
+ 217 |  4 |             if (response.ok) {
+ 218 |  4 |                 const data = await response.json();
+ 219 |  4 |                 console.log('Search results received:', data);
+ 220 |  4 |                 setSearchResults(data);
+ 221 |  4 |             } else {
+ 222 |  4 |                 const errorData = await response.json();
+ 223 |  4 |                 console.error('Search API error:', errorData);
+ 224 |  3 |             }
+ 225 |  3 |         } catch (error) {
+ 226 |  3 |             console.error('Error searching users:', error);
+ 227 |  2 |         }
+ 228 |  1 |     }, 300), []);
+ 229 |  1 | 
+ 230 |  1 |     // Start conversation with user
+ 231 |  2 |     const startConversation = async (targetUser) => {
+ 232 |  3 |         try {
+ 233 |  3 |             console.log('🚀 Starting conversation with user:', targetUser);
+ 234 |  3 |             
+ 235 |  3 |             const token = localStorage.getItem('token');
+ 236 |  3 |             console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
+ 237 |  3 |             
+ 238 |  4 |             const requestBody = {
+ 239 |  4 |                 userId: targetUser._id,
+ 240 |  4 |                 userRole: targetUser.role
+ 241 |  3 |             };
+ 242 |  3 |             console.log('📤 Request body:', requestBody);
+ 243 |  3 |             
+ 244 |  3 |             const apiUrl = `${API_URL}/messages/start-conversation`;
+ 245 |  3 |             console.log('🌐 Making request to:', apiUrl);
+ 246 |  4 |             const response = await fetch(apiUrl, {
+ 247 |  4 |                 method: 'POST',
+ 248 |  5 |                 headers: {
+ 249 |  5 |                     'Content-Type': 'application/json',
+ 250 |  5 |                     'Authorization': `Bearer ${token}`
+ 251 |  4 |                 },
+ 252 |  4 |                 body: JSON.stringify(requestBody)
+ 253 |  3 |             });
+ 254 |  3 | 
+ 255 |  3 |             console.log('📥 Start conversation response status:', response.status);
+ 256 |  3 | 
+ 257 |  4 |             if (response.ok) {
+ 258 |  4 |                 const conversation = await response.json();
+ 259 |  4 |                 console.log('✅ Conversation created successfully:', conversation);
+ 260 |  4 |                 console.log('🔄 Updating UI state...');
+ 261 |  4 |                 console.log('🔄 Setting selected conversation:', conversation);
+ 262 |  4 |                 setSelectedConversation(conversation);
+ 263 |  4 |                 setShowSearch(false);
+ 264 |  4 |                 setSearchQuery('');
+ 265 |  4 |                 setSearchResults([]);
+ 266 |  4 |                 console.log('🔄 Fetching conversations...');
+ 267 |  4 |                 await fetchConversations();
+ 268 |  4 |                 console.log('✅ UI state updated');
+ 269 |  4 |             } else {
+ 270 |  4 |                 const errorData = await response.json();
+ 271 |  4 |                 console.error('❌ Start conversation error:', errorData);
+ 272 |  4 |                 console.error('❌ Response status:', response.status);
+ 273 |  4 |                 console.error('❌ Response text:', await response.text());
+ 274 |  3 |             }
+ 275 |  3 |         } catch (error) {
+ 276 |  3 |             console.error('💥 Error starting conversation:', error);
+ 277 |  2 |         }
+ 278 |  1 |     };
+ 279 |  1 | 
+ 280 |  1 |     // Send message
+ 281 |  2 |     const sendMessage = async (e) => {
+ 282 |  2 |         e.preventDefault();
+ 283 |  2 |         if (!newMessage.trim() || !selectedConversation || connectionStatus !== 'connected') return;
+ 284 |  2 | 
+ 285 |  2 |         const messageContent = newMessage.trim();
+ 286 |  2 |         setNewMessage('');
+ 287 |  2 | 
+ 288 |  3 |         try {
+ 289 |  3 |             // Send via Socket.IO for real-time delivery
+ 290 |  4 |             socketManager.emit('sendMessage', {
+ 291 |  4 |                 conversationId: selectedConversation._id,
+ 292 |  4 |                 content: messageContent,
+ 293 |  4 |                 messageType: 'text'
+ 294 |  3 |             });
+ 295 |  3 | 
+ 296 |  3 |             // Fallback to HTTP if Socket.IO fails
+ 297 |  3 |             const token = localStorage.getItem('token');
+ 298 |  4 |             const response = await fetch(`${API_URL}/messages/send`, {
+ 299 |  4 |                 method: 'POST',
+ 300 |  5 |                 headers: {
+ 301 |  5 |                     'Content-Type': 'application/json',
+ 302 |  5 |                     'Authorization': `Bearer ${token}`
+ 303 |  4 |                 },
+ 304 |  5 |                 body: JSON.stringify({
+ 305 |  5 |                     conversationId: selectedConversation._id,
+ 306 |  5 |                     content: messageContent,
+ 307 |  5 |                     messageType: 'text'
+ 308 |  4 |                 })
+ 309 |  3 |             });
+ 310 |  3 | 
+ 311 |  4 |             if (!response.ok) {
+ 312 |  4 |                 throw new Error('Failed to send message');
+ 313 |  3 |             }
+ 314 |  3 |         } catch (error) {
+ 315 |  3 |             console.error('Error sending message:', error);
+ 316 |  3 |             // Optionally show error to user
+ 317 |  2 |         }
+ 318 |  1 |     };
+ 319 |  1 | 
+ 320 |  1 |     // Handle typing indicator
+ 321 |  2 |     const handleTyping = (e) => {
+ 322 |  2 |         setNewMessage(e.target.value);
+ 323 |  2 |         
+ 324 |  3 |         if (!isTyping && selectedConversation) {
+ 325 |  3 |             setIsTyping(true);
+ 326 |  4 |             socketManager.emit('typing', {
+ 327 |  4 |                 conversationId: selectedConversation._id
+ 328 |  3 |             });
+ 329 |  2 |         }
+ 330 |  2 | 
+ 331 |  2 |         // Clear existing timeout
+ 332 |  3 |         if (typingTimeoutRef.current) {
+ 333 |  3 |             clearTimeout(typingTimeoutRef.current);
+ 334 |  2 |         }
+ 335 |  2 | 
+ 336 |  2 |         // Set new timeout to stop typing indicator
+ 337 |  3 |         typingTimeoutRef.current = setTimeout(() => {
+ 338 |  4 |             if (selectedConversation) {
+ 339 |  5 |                 socketManager.emit('stopTyping', {
+ 340 |  5 |                     conversationId: selectedConversation._id
+ 341 |  4 |                 });
+ 342 |  3 |             }
+ 343 |  3 |             setIsTyping(false);
+ 344 |  2 |         }, 3000);
+ 345 |  1 |     };
+ 346 |  1 | 
+ 347 |  1 |     // Mark message as read
+ 348 |  2 |     const markAsRead = (messageId) => {
+ 349 |  3 |         if (selectedConversation) {
+ 350 |  4 |             socketManager.emit('markAsRead', {
+ 351 |  4 |                 messageId,
+ 352 |  4 |                 conversationId: selectedConversation._id
+ 353 |  3 |             });
+ 354 |  2 |         }
+ 355 |  1 |     };
+ 356 |  1 | 
+ 357 |  1 |     // Scroll to bottom of messages
+ 358 |  2 |     const scrollToBottom = () => {
+ 359 |  2 |         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+ 360 |  1 |     };
+ 361 |  1 | 
+ 362 |  1 |     // Get other participant info
+ 363 |  2 |     const getOtherParticipant = (conversation) => {
+ 364 |  2 |         if (!conversation || !conversation.participants) return null;
+ 365 |  2 |         
+ 366 |  2 |         // Debug logging
+ 367 |  2 |         console.log('Conversation participants:', conversation.participants);
+ 368 |  2 |         console.log('Current user ID:', userId);
+ 369 |  2 |         console.log('Current user object keys:', Object.keys(user || {}));
+ 370 |  2 |         
+ 371 |  3 |         const otherParticipant = conversation.participants.find(p => {
+ 372 |  3 |             const participantId = p.userId?._id || p.userId;
+ 373 |  3 |             return participantId !== userId;
+ 374 |  2 |         });
+ 375 |  2 |         
+ 376 |  2 |         console.log('Other participant:', otherParticipant);
+ 377 |  2 |         return otherParticipant;
+ 378 |  1 |     };
+ 379 |  1 | 
+ 380 |  1 |     // Format message time
+ 381 |  2 |     const formatMessageTime = (timestamp) => {
+ 382 |  2 |         if (!timestamp) return '';
+ 383 |  3 |         return new Date(timestamp).toLocaleTimeString([], {
+ 384 |  3 |             hour: '2-digit',
+ 385 |  3 |             minute: '2-digit'
+ 386 |  2 |         });
+ 387 |  1 |     };
+ 388 |  1 | 
+ 389 |  1 |     // Format message date
+ 390 |  2 |     const formatMessageDate = (timestamp) => {
+ 391 |  2 |         if (!timestamp) return '';
+ 392 |  2 |         const date = new Date(timestamp);
+ 393 |  2 |         const today = new Date();
+ 394 |  2 |         const yesterday = new Date(today);
+ 395 |  2 |         yesterday.setDate(yesterday.getDate() - 1);
+ 396 |  2 | 
+ 397 |  3 |         if (date.toDateString() === today.toDateString()) {
+ 398 |  3 |             return 'Today';
+ 399 |  3 |         } else if (date.toDateString() === yesterday.toDateString()) {
+ 400 |  3 |             return 'Yesterday';
+ 401 |  3 |         } else {
+ 402 |  4 |             return date.toLocaleDateString([], { 
+ 403 |  4 |                 month: 'short', 
+ 404 |  4 |                 day: 'numeric', 
+ 405 |  4 |                 year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined 
+ 406 |  3 |             });
+ 407 |  2 |         }
+ 408 |  2 |     // Check if user is online
+ 409 |  3 |     const isUserOnline = (userId) => {
+ 410 |  3 |         return onlineUsers.some(user => (user.userId || user._id) === userId);
+ 411 |  2 |     };
+ 412 |  2 | 
+ 413 |  2 |     // Effects
+ 414 |  3 |     useEffect(() => {
+ 415 |  3 |         fetchConversations();
+ 416 |  2 |     }, [fetchConversations]);
+ 417 |  2 | 
+ 418 |  3 |     useEffect(() => {
+ 419 |  3 |         console.log('🎯 Selected conversation changed:', selectedConversation);
+ 420 |  4 |         if (selectedConversation) {
+ 421 |  4 |             console.log('📥 Fetching messages for conversation:', selectedConversation._id);
+ 422 |  4 |             fetchMessages(selectedConversation._id);
+ 423 |  3 |         }
+ 424 |  2 |     }, [selectedConversation, fetchMessages]);
+ 425 |  2 | 
+ 426 |  3 |     useEffect(() => {
+ 427 |  3 |         searchUsers(searchQuery);
+ 428 |  2 |     }, [searchQuery, searchUsers]);
+ 429 |  2 | 
+ 430 |  3 |     useEffect(() => {
+ 431 |  3 |         scrollToBottom();
+ 432 |  2 |     }, [messages]);
+ 433 |  2 | 
+ 434 |  2 |     // Get conversation display name
+ 435 |  3 |     const getConversationDisplayName = (conversation) => {
+ 436 |  3 |         const otherParticipant = getOtherParticipant(conversation);
+ 437 |  3 |         return otherParticipant?.userId?.name || 'Unknown User';
+ 438 |  2 |     };
+ 439 |  2 | 
+ 440 |  2 |     // Get unread count for conversation
+ 441 |  3 |     const getConversationUnreadCount = (conversation) => {
+ 442 |  4 |         const participant = conversation.participants.find(p => {
+ 443 |  4 |             const participantId = p.userId?._id || p.userId;
+ 444 |  4 |             return participantId === userId;
+ 445 |  3 |         });
+ 446 |  3 |         return participant?.unreadCount || 0;
+ 447 |  2 |     };
+ 448 |  2 | 
+ 449 |  3 |     if (isLoading) {
+ 450 |  3 |         return (
+ 451 |  3 |             <div className="flex items-center justify-center h-64">
+ 452 |  3 |                 <div className="flex items-center gap-3">
+ 453 |  3 |                     <Circle className="w-5 h-5 text-cyan-600 animate-pulse" />
+ 454 |  3 |                     <span className="text-slate-500">Loading conversations...</span>
+ 455 |  3 |                 </div>
+ 456 |  3 |             </div>
+ 457 |  3 |         );
+ 458 |  2 |     }
+ 459 |  2 | 
+ 460 |  2 |     console.log('🚀 ChatSystem component rendering, user:', user);
+ 461 |  2 |     
+ 462 |  2 |     return (
+ 463 |  2 |         <motion.div 
+ 464 |  2 |             initial={{ opacity: 0 }} 
+ 465 |  2 |             animate={{ opacity: 1 }} 
+ 466 |  2 |             exit={{ opacity: 0 }} 
+ 467 |  2 |             className="flex h-[calc(100vh-10rem)] bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+ 468 |  2 |         >
+ 469 |  2 |             {/* Conversations List */}
+ 470 |  2 |             <div className="w-1/3 border-r border-slate-200 flex flex-col">
+ 471 |  2 |                 {/* Header */}
+ 472 |  2 |                 <div className="p-4 border-b border-slate-200">
+ 473 |  2 |                     <div className="flex justify-between items-center mb-3">
+ 474 |  2 |                         <h3 className="text-xl font-bold text-slate-800">Messages</h3>
+ 475 |  2 |                         <div className="flex items-center gap-2">
+ 476 |  4 |                             <div className={`w-2 h-2 rounded-full ${
+ 477 |  4 |                                 connectionStatus === 'connected' ? 'bg-green-500' : 
+ 478 |  4 |                                 connectionStatus === 'error' ? 'bg-red-500' : 'bg-slate-300'
+ 479 |  2 |                             }`} />
+ 480 |  2 |                             <span className="text-xs text-slate-500">
+ 481 |  2 |                                 {onlineUsers.length} online
+ 482 |  2 |                             </span>
+ 483 |  2 |                         </div>
+ 484 |  2 |                     </div>
+ 485 |  2 |                     
+ 486 |  2 |                     {/* Search */}
+ 487 |  2 |                     <div className="relative">
+ 488 |  2 |                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+ 489 |  2 |                         <input
+ 490 |  2 |                             type="text"
+ 491 |  2 |                             placeholder="Search conversations or start new..."
+ 492 |  2 |                             value={searchQuery}
+ 493 |  2 |                             onChange={(e) => setSearchQuery(e.target.value)}
+ 494 |  2 |                             onFocus={() => setShowSearch(true)}
+ 495 |  2 |                             className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
+ 496 |  2 |                         />
+ 497 |  2 |                         
+ 498 |  2 |                         {/* Search Results Dropdown */}
+ 499 |  3 |                         {showSearch && searchResults.length > 0 && (
+ 500 |  3 |                             <motion.div
+ 501 |  3 |                                 initial={{ opacity: 0, y: -10 }}
+ 502 |  3 |                                 animate={{ opacity: 1, y: 0 }}
+ 503 |  3 |                                 className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-60 overflow-y-auto"
+ 504 |  3 |                             >
+ 505 |  4 |                                 {searchResults.map(result => (
+ 506 |  4 |                                     <button
+ 507 |  4 |                                         key={result._id}
+ 508 |  6 |                                         onClick={async () => {
+ 509 |  7 |                                             try {
+ 510 |  7 |                                                 alert('🖱️ Click handler called! User: ' + result.name);
+ 511 |  7 |                                                 console.log('🖱️ Clicked on search result:', result);
+ 512 |  8 |                                                 console.log('🔍 Result details:', {
+ 513 |  8 |                                                     _id: result._id,
+ 514 |  8 |                                                     name: result.name,
+ 515 |  8 |                                                     role: result.role,
+ 516 |  8 |                                                     profilePicture: result.profilePicture
+ 517 |  7 |                                                 });
+ 518 |  7 |                                                 await startConversation(result);
+ 519 |  7 |                                             } catch (error) {
+ 520 |  7 |                                                 console.error('💥 Error in click handler:', error);
+ 521 |  7 |                                                 alert('Failed to start conversation. Please try again.');
+ 522 |  6 |                                             }
+ 523 |  4 |                                         }}
+ 524 |  4 |                                         className="w-full text-left p-3 hover:bg-slate-50 flex items-center gap-3 transition-colors"
+ 525 |  4 |                                     >
+ 526 |  4 |                                         <div className="relative">
+ 527 |  4 |                                             <img 
+ 528 |  4 |                                                 src={result.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'} 
+ 529 |  4 |                                                 className="w-10 h-10 rounded-full" 
+ 530 |  4 |                                                 alt={result.name}
+ 531 |  4 |                                             />
+ 532 |  5 |                                             {isUserOnline(result._id) && (
+ 533 |  5 |                                                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+ 534 |  4 |                                             )}
+ 535 |  4 |                                         </div>
+ 536 |  4 |                                         <div className="flex-1">
+ 537 |  4 |                                             <p className="font-semibold text-slate-800">{result.name}</p>
+ 538 |  4 |                                             <p className="text-xs text-slate-500 capitalize">{result.role}</p>
+ 539 |  4 |                                         </div>
+ 540 |  4 |                                         <MessageCircle className="w-4 h-4 text-cyan-600" />
+ 541 |  4 |                                     </button>
+ 542 |  3 |                                 ))}
+ 543 |  3 |                             </motion.div>
+ 544 |  2 |                         )}
+ 545 |  2 |                     </div>
+ 546 |  2 |                 </div>
+ 547 |  2 | 
+ 548 |  2 |                 {/* Conversations List */}
+ 549 |  2 |                 <div className="p-2 overflow-y-auto flex-1">
+ 550 |  3 |                     {conversations.length === 0 ? (
+ 551 |  3 |                         <div className="p-4 text-center text-slate-500">
+ 552 |  3 |                             <MessageCircle className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+ 553 |  3 |                             <p>No conversations yet</p>
+ 554 |  3 |                             <p className="text-sm mt-1">Search for users to start chatting</p>
+ 555 |  3 |                         </div>
+ 556 |  3 |                     ) : (
+ 557 |  4 |                         conversations.map(conversation => {
+ 558 |  4 |                             const otherParticipant = getOtherParticipant(conversation);
+ 559 |  4 |                             const unreadCount = getConversationUnreadCount(conversation);
+ 560 |  4 |                             
+ 561 |  4 |                             return (
+ 562 |  4 |                                 <motion.button 
+ 563 |  4 |                                     key={conversation._id} 
+ 564 |  4 |                                     onClick={() => setSelectedConversation(conversation)} 
+ 565 |  6 |                                     className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors relative ${
+ 566 |  6 |                                         selectedConversation?._id === conversation._id ? 'bg-cyan-50' : 'hover:bg-slate-50'
+ 567 |  4 |                                     }`}
+ 568 |  4 |                                     whileHover={{ scale: 1.02 }}
+ 569 |  4 |                                 >
+ 570 |  4 |                                     <div className="relative flex-shrink-0">
+ 571 |  4 |                                         <img 
+ 572 |  4 |                                             src={otherParticipant?.userId?.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'} 
+ 573 |  4 |                                             className="w-12 h-12 rounded-full" 
+ 574 |  4 |                                             alt={otherParticipant?.userId?.name || 'User'}
+ 575 |  4 |                                         />
+ 576 |  5 |                                         {isUserOnline(otherParticipant?.userId?._id) && (
+ 577 |  5 |                                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+ 578 |  4 |                                         )}
+ 579 |  4 |                                     </div>
+ 580 |  4 |                                     
+ 581 |  4 |                                     <div className="flex-grow overflow-hidden min-w-0">
+ 582 |  4 |                                         <div className="flex justify-between items-center mb-1">
+ 583 |  4 |                                             <p className="font-bold text-slate-800 truncate">
+ 584 |  4 |                                                 {otherParticipant?.userId?.name || 'Unknown User'}
+ 585 |  4 |                                             </p>
+ 586 |  4 |                                             <div className="flex items-center gap-2 flex-shrink-0">
+ 587 |  4 |                                                 <p className="text-xs text-slate-400">
+ 588 |  4 |                                                     {formatMessageTime(conversation.lastMessageAt)}
+ 589 |  4 |                                                 </p>
+ 590 |  5 |                                                 {unreadCount > 0 && (
+ 591 |  5 |                                                     <span className="bg-cyan-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+ 592 |  5 |                                                         {unreadCount}
+ 593 |  5 |                                                     </span>
+ 594 |  4 |                                                 )}
+ 595 |  4 |                                             </div>
+ 596 |  4 |                                         </div>
+ 597 |  4 |                                         <p className="text-sm text-slate-500 truncate">
+ 598 |  4 |                                             {conversation.lastMessage}
+ 599 |  4 |                                         </p>
+ 600 |  4 |                                     </div>
+ 601 |  4 |                                 </motion.button>
+ 602 |  4 |                             );
+ 603 |  3 |                         })
+ 604 |  2 |                     )}
+ 605 |  2 |                 </div>
+ 606 |  2 |             </div>
+ 607 |  2 | 
+ 608 |  2 |             {/* Messages Area */}
+ 609 |  2 |             <div className="w-2/3 flex flex-col">
+ 610 |  3 |                 {selectedConversation ? (
+ 611 |  3 |                     <>
+ 612 |  3 |                         {/* Header */}
+ 613 |  3 |                         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white">
+ 614 |  3 |                             <div className="flex items-center gap-3">
+ 615 |  3 |                                 <div className="relative">
+ 616 |  3 |                                     <img 
+ 617 |  3 |                                         src={getOtherParticipant(selectedConversation)?.userId?.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'} 
+ 618 |  3 |                                         className="w-10 h-10 rounded-full" 
+ 619 |  3 |                                         alt={getConversationDisplayName(selectedConversation)}
+ 620 |  3 |                                     />
+ 621 |  4 |                                     {isUserOnline(getOtherParticipant(selectedConversation)?.userId?._id) && (
+ 622 |  4 |                                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+ 623 |  3 |                                     )}
+ 624 |  3 |                                 </div>
+ 625 |  3 |                                 <div>
+ 626 |  3 |                                     <h4 className="font-bold text-slate-800 text-lg truncate">
+ 627 |  3 |                                         {getConversationDisplayName(selectedConversation)}
+ 628 |  3 |                                     </h4>
+ 629 |  3 |                                     <p className="text-xs text-cyan-600 font-semibold">
+ 630 |  3 |                                         {isUserOnline(getOtherParticipant(selectedConversation)?.userId?._id) ? 'Active now' : 'Offline'}
+ 631 |  3 |                                     </p>
+ 632 |  3 |                                 </div>
+ 633 |  3 |                             </div>
+ 634 |  3 |                             
+ 635 |  3 |                             <div className="flex items-center gap-2">
+ 636 |  3 |                                 <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+ 637 |  3 |                                     <Phone className="w-5 h-5" />
+ 638 |  3 |                                 </button>
+ 639 |  3 |                                 <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+ 640 |  3 |                                     <Video className="w-5 h-5" />
+ 641 |  3 |                                 </button>
+ 642 |  3 |                                 <button className="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+ 643 |  3 |                                     <Info className="w-5 h-5" />
+ 644 |  3 |                                 </button>
+ 645 |  3 |                             </div>
+ 646 |  3 |                         </div>
+ 647 |  3 | 
+ 648 |  3 |                         {/* Messages */}
+ 649 |  3 |                         <div className="flex-grow p-6 bg-slate-50/50 overflow-y-auto">
+ 650 |  4 |                             {messages.length === 0 ? (
+ 651 |  4 |                                 <div className="text-center text-slate-500 mt-8">
+ 652 |  4 |                                     <MessageCircle className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+ 653 |  4 |                                     <p>No messages yet</p>
+ 654 |  4 |                                     <p className="text-sm mt-1">Start the conversation!</p>
+ 655 |  4 |                                 </div>
+ 656 |  4 |                             ) : (
+ 657 |  4 |                                 <div className="space-y-4">
+ 658 |  6 |                                     {messages.map((message, index) => {
+ 659 |  6 |                                         const currentMsgDate = new Date(message.createdAt).toDateString();
+ 660 |  6 |                                         const prevMsgDate = index > 0 ? new Date(messages[index - 1].createdAt).toDateString() : null;
+ 661 |  6 |                                         const showDate = currentMsgDate !== prevMsgDate;
+ 662 |  6 | 
+ 663 |  6 |                                         const isOwn = String(message.senderId?._id || message.senderId) === String(userId);
+ 664 |  6 |                                         const isRead = message.readBy && message.readBy.length > 1;
+ 665 |  6 | 
+ 666 |  6 |                                         return (
+ 667 |  6 |                                             <React.Fragment key={message._id || index}>
+ 668 |  7 |                                                 {showDate && (
+ 669 |  7 |                                                     <div className="flex justify-center my-4">
+ 670 |  7 |                                                         <div className="bg-slate-100 text-slate-500 text-xs font-medium px-3 py-1 rounded-full shadow-sm">
+ 671 |  7 |                                                             {formatMessageDate(message.createdAt)}
+ 672 |  7 |                                                         </div>
+ 673 |  7 |                                                     </div>
+ 674 |  6 |                                                 )}
+ 675 |  6 |                                                 <motion.div
+ 676 |  6 |                                                     initial={{ opacity: 0, y: 10 }}
+ 677 |  6 |                                                     animate={{ opacity: 1, y: 0 }}
+ 678 |  6 |                                                     className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+ 679 |  6 |                                                 >
+ 680 |  8 |                                                     <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+ 681 |  8 |                                                         isOwn
+ 682 |  8 |                                                             ? 'bg-cyan-600 text-white shadow-md'
+ 683 |  8 |                                                             : 'bg-white text-slate-800 border border-slate-200 shadow-sm'
+ 684 |  6 |                                                     }`}>
+ 685 |  6 |                                                         <p className="break-words">{message.content}</p>
+ 686 |  6 | 
+ 687 |  8 |                                                         <div className={`flex items-center justify-end mt-1 gap-2 ${
+ 688 |  8 |                                                             isOwn ? 'text-cyan-100' : 'text-slate-400'
+ 689 |  6 |                                                         }`}>
+ 690 |  6 |                                                             <p className="text-[10px] uppercase font-semibold tracking-wider">
+ 691 |  6 |                                                                 {formatMessageTime(message.createdAt)}
+ 692 |  6 |                                                             </p>
+ 693 |  7 |                                                             {isOwn && (
+ 694 |  7 |                                                                 <div className="flex items-center">
+ 695 |  8 |                                                                     {isRead ? (
+ 696 |  8 |                                                                         <CheckCheck className="w-3.5 h-3.5 text-cyan-200" />
+ 697 |  8 |                                                                     ) : (
+ 698 |  8 |                                                                         <Check className="w-3.5 h-3.5 text-cyan-200" />
+ 699 |  7 |                                                                     )}
+ 700 |  7 |                                                                 </div>
+ 701 |  6 |                                                             )}
+ 702 |  6 |                                                         </div>
+ 703 |  6 |                                                     </div>
+ 704 |  6 |                                                 </motion.div>
+ 705 |  6 |                                             </React.Fragment>
+ 706 |  6 |                                         );
+ 707 |  4 |                                     })}
+ 708 |  4 | 
+ 709 |  4 |                                     {/* Typing Indicator */}
+ 710 |  5 |                                     {typingUsers.size > 0 && (
+ 711 |  5 |                                         <motion.div
+ 712 |  5 |                                             initial={{ opacity: 0, y: 10 }}
+ 713 |  5 |                                             animate={{ opacity: 1, y: 0 }}
+ 714 |  5 |                                             className="flex justify-start"
+ 715 |  5 |                                         >
+ 716 |  5 |                                             <div className="bg-white text-slate-800 border border-slate-200 px-4 py-2 rounded-lg">
+ 717 |  5 |                                                 <div className="flex items-center gap-2">
+ 718 |  5 |                                                     <div className="flex gap-1">
+ 719 |  5 |                                                         <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" />
+ 720 |  5 |                                                         <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+ 721 |  5 |                                                         <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+ 722 |  5 |                                                     </div>
+ 723 |  5 |                                                     <span className="text-sm text-slate-500">typing...</span>
+ 724 |  5 |                                                 </div>
+ 725 |  5 |                                             </div>
+ 726 |  5 |                                         </motion.div>
+ 727 |  4 |                                     )}
+ 728 |  4 |                                     
+ 729 |  4 |                                     <div ref={messagesEndRef} />
+ 730 |  4 |                                 </div>
+ 731 |  3 |                             )}
+ 732 |  3 |                         </div>
+ 733 |  3 | 
+ 734 |  3 |                         {/* Message Input */}
+ 735 |  3 |                         <form onSubmit={sendMessage} className="p-4 bg-white border-t border-slate-200">
+ 736 |  3 |                             <div className="flex items-center gap-3">
+ 737 |  3 |                                 <button type="button" className="p-3 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+ 738 |  3 |                                     <Paperclip className="w-5 h-5" />
+ 739 |  3 |                                 </button>
+ 740 |  3 |                                 
+ 741 |  3 |                                 <div className="flex-1 relative">
+ 742 |  3 |                                     <input 
+ 743 |  3 |                                         type="text" 
+ 744 |  3 |                                         value={newMessage}
+ 745 |  3 |                                         onChange={handleTyping}
+ 746 |  3 |                                         placeholder={`Message ${getConversationDisplayName(selectedConversation)}...`} 
+ 747 |  3 |                                         className="w-full bg-slate-100 border-transparent rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-500 pr-12"
+ 748 |  3 |                                         disabled={connectionStatus !== 'connected'}
+ 749 |  3 |                                     />
+ 750 |  3 |                                     
+ 751 |  3 |                                     <button 
+ 752 |  3 |                                         type="button" 
+ 753 |  3 |                                         className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 text-slate-500 hover:bg-slate-200 rounded-full transition-colors"
+ 754 |  3 |                                     >
+ 755 |  3 |                                         <Smile className="w-4 h-4" />
+ 756 |  3 |                                     </button>
+ 757 |  3 |                                 </div>
+ 758 |  3 |                                 
+ 759 |  3 |                                 <button 
+ 760 |  3 |                                     type="submit"
+ 761 |  3 |                                     disabled={!newMessage.trim() || connectionStatus !== 'connected'}
+ 762 |  3 |                                     className="p-3 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+ 763 |  3 |                                 >
+ 764 |  3 |                                     <Send className="w-5 h-5" />
+ 765 |  3 |                                 </button>
+ 766 |  3 |                             </div>
+ 767 |  3 |                             
+ 768 |  4 |                             {connectionStatus !== 'connected' && (
+ 769 |  4 |                                 <p className="text-xs text-red-500 mt-2 text-center">
+ 770 |  4 |                                     Connection lost. Messages will be sent when reconnected.
+ 771 |  4 |                                 </p>
+ 772 |  3 |                             )}
+ 773 |  3 |                         </form>
+ 774 |  3 |                     </>
+ 775 |  3 |                 ) : (
+ 776 |  3 |                     <div className="flex-1 flex items-center justify-center text-slate-500">
+ 777 |  3 |                         <div className="text-center">
+ 778 |  3 |                             <MessageCircle className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+ 779 |  3 |                             <p>Select a conversation to start messaging</p>
+ 780 |  3 |                             <p className="text-sm mt-1">Or search for users to start a new conversation</p>
+ 781 |  3 |                         </div>
+ 782 |  3 |                     </div>
+ 783 |  2 |                 )}
+ 784 |  2 |             </div>
+ 785 |  2 |         </motion.div>
+ 786 |  2 |     );
+ 787 |  1 | };
+ 788 |  1 | 
+ 789 |  1 | export default ChatSystem;
+ 790 |  1 | 
