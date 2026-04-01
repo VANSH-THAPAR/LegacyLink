@@ -44,7 +44,7 @@ class SocketHandler {
                 }
 
                 socket.user = {
-                    id: user._id,
+                    id: userPayload.id,
                     role: userPayload.role,
                     name: user.name,
                     profilePicture: user.profilePicture,
@@ -186,20 +186,34 @@ class SocketHandler {
 
                     await conversation.save();
 
-                    // Populate message details
-                    await message.populate('senderId', 'name profilePicture');
+                    // Populate message details manually
+                    const messageObj = message.toObject();
+                    try {
+                        const Student = require('../models/student');
+                        const Alumni = require('../models/alumni');
+                        const details = socket.user.role === 'student' 
+                            ? await Student.findOne({ authId: socket.user.id }).select('name profilePicture')
+                            : await Alumni.findOne({ authId: socket.user.id }).select('name profilePicture');
+                        messageObj.senderId = { 
+                            _id: socket.user.id, 
+                            name: details?.name || (socket.user.role === 'student' ? 'Student' : 'Alumni'), 
+                            profilePicture: details?.profilePicture 
+                        };
+                    } catch(e) {
+                        messageObj.senderId = { _id: socket.user.id, name: 'Unknown User' };
+                    }
 
                     // Broadcast to all participants
                     const messageData = {
-                        _id: message._id,
-                        conversationId: message.conversationId,
-                        senderId: message.senderId,
-                        senderRole: message.senderRole,
-                        content: message.content,
-                        messageType: message.messageType,
-                        readBy: message.readBy,
-                        createdAt: message.createdAt,
-                        sender: message.senderId
+                        _id: messageObj._id,
+                        conversationId: messageObj.conversationId,
+                        senderId: messageObj.senderId,
+                        senderRole: messageObj.senderRole,
+                        content: messageObj.content,
+                        messageType: messageObj.messageType,
+                        readBy: messageObj.readBy,
+                        createdAt: messageObj.createdAt,
+                        sender: messageObj.senderId
                     };
 
                     this.io.to(conversationId).emit('receiveMessage', messageData);

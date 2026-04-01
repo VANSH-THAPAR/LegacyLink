@@ -12,15 +12,35 @@ exports.getConversations = async (req, res) => {
 
         const conversations = await Conversation.getUserConversations(currentUserId, page, limit);
 
-        // Get unread counts for each conversation
+// Get user details for unpopulated userIds and map unread counts
         const conversationsWithUnread = await Promise.all(
             conversations.map(async (conv) => {
-                const participant = conv.participants.find(p => 
-                    p.userId.toString() === currentUserId.toString()
+                const convObj = conv.toObject();
+
+                for (let i = 0; i < convObj.participants.length; i++) {
+                    const p = convObj.participants[i];
+                    // Because schema lacks a strict ref, userId remains an ObjectId; we manually populate
+                    if (!p.userId.name) {
+                        try {
+                            if (p.role === 'student') {
+                                const details = await Student.findOne({ authId: p.userId }).select('name profilePicture');
+                                p.userId = { _id: p.userId, name: details?.name || 'Student', profilePicture: details?.profilePicture };
+                            } else if (p.role === 'alumni') {
+                                const details = await Alumni.findOne({ authId: p.userId }).select('name profilePicture');
+                                p.userId = { _id: p.userId, name: details?.name || 'Alumni', profilePicture: details?.profilePicture };
+                            }
+                        } catch (err) {
+                            p.userId = { _id: p.userId, name: 'Unknown User' };
+                        }
+                    }
+                }
+
+                const participant = convObj.participants.find(p =>
+                    p.userId._id.toString() === currentUserId.toString()
                 );
-                
+
                 return {
-                    ...conv.toObject(),
+                    ...convObj,
                     unreadCount: participant ? participant.unreadCount : 0,
                     lastReadAt: participant ? participant.lastReadAt : null
                 };
@@ -69,11 +89,27 @@ exports.getMessages = async (req, res) => {
             conversationId,
             isDeleted: false
         })
-        .populate('senderId', 'name profilePicture')
         .populate('replyTo', 'content senderId')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .lean(); // Use lean to easily modify the result
+
+        // Manually map senderId based on role
+        for (let m of messages) {
+            try {
+                const details = m.senderRole === 'student' 
+                    ? await Student.findOne({ authId: m.senderId }).select('name profilePicture')
+                    : await Alumni.findOne({ authId: m.senderId }).select('name profilePicture');
+                m.senderId = { 
+                    _id: m.senderId, 
+                    name: details?.name || (m.senderRole === 'student' ? 'Student' : 'Alumni'), 
+                    profilePicture: details?.profilePicture 
+                };
+            } catch(e) {
+                m.senderId = { _id: m.senderId, name: 'Unknown User' };
+            }
+        }
 
         // Reverse to show oldest first
         messages.reverse();
@@ -112,18 +148,39 @@ exports.startConversation = async (req, res) => {
         // Allow all users to chat (connection validation removed)
         console.log('✅ Allowing conversation - connection validation disabled');
 
+        const populateConversation = async (convDoc) => {
+            const convObj = convDoc.toObject();
+            for (let i = 0; i < convObj.participants.length; i++) {
+                const p = convObj.participants[i];
+                if (!p.userId.name) {
+                    try {
+                        if (p.role === 'student') {
+                            const details = await Student.findOne({ authId: p.userId }).select('name profilePicture');
+                            p.userId = { _id: p.userId, name: details?.name || 'Student', profilePicture: details?.profilePicture };
+                        } else if (p.role === 'alumni') {
+                            const details = await Alumni.findOne({ authId: p.userId }).select('name profilePicture');
+                            p.userId = { _id: p.userId, name: details?.name || 'Alumni', profilePicture: details?.profilePicture };
+                        }
+                    } catch(err) {
+                        p.userId = { _id: p.userId, name: 'Unknown User' };
+                    }
+                }
+            }
+            return convObj;
+        };
+
         // Check if conversation already exists
         const existingConversation = await Conversation.findOne({
             participants: {
                 $all: [
-                    { userId: currentUserId },
-                    { userId: userId }
+                    { $elemMatch: { userId: currentUserId } },
+                    { $elemMatch: { userId: userId } }
                 ]
             }
-        }).populate('participants.userId', 'name profilePicture');
+        });
 
         if (existingConversation) {
-            return res.json(existingConversation);
+            return res.json(await populateConversation(existingConversation));
         }
 
         // Find or create conversation
@@ -133,8 +190,7 @@ exports.startConversation = async (req, res) => {
         ];
 
         const conversation = await Conversation.findOrCreate(participants);
-
-        res.json(conversation);
+        res.json(await populateConversation(conversation));
     } catch (error) {
         console.error('Error starting conversation:', error);
         res.status(500).json({ msg: 'Server Error' });
@@ -169,9 +225,9 @@ exports.searchUsers = async (req, res) => {
                 name: { $regex: query, $options: 'i' }
                 // Removed isVerified requirement for testing
             })
-            .select('name profilePicture rollNumber company position industry')
+            .select('name profilePicture rollNumber company position industry authId')
             .limit(10);
-            
+
             console.log('Found alumni results:', searchResults.length);
         } else if (currentUserRole === 'alumni') {
             console.log('Searching for students with query:', query);
@@ -179,17 +235,21 @@ exports.searchUsers = async (req, res) => {
                 name: { $regex: query, $options: 'i' }
                 // Removed isVerified requirement for testing
             })
-            .select('name profilePicture rollNumber course graduatingYear')
+            .select('name profilePicture rollNumber course graduatingYear authId')
             .limit(10);
-            
+
             console.log('Found student results:', searchResults.length);
         }
 
-        // Add role to results
-        const resultsWithRole = searchResults.map(user => ({
-            ...user.toObject(),
-            role: currentUserRole === 'student' ? 'alumni' : 'student'
-        }));
+        // Add role to results and map authId to _id
+        const resultsWithRole = searchResults.map(user => {
+            const userObj = user.toObject();
+            return {
+                ...userObj,
+                _id: userObj.authId || userObj._id, // Crucial: return AuthUser._id for chat to function
+                role: currentUserRole === 'student' ? 'alumni' : 'student'
+            };
+        });
 
         console.log('Returning search results:', resultsWithRole.length);
         res.json(resultsWithRole);
@@ -257,10 +317,22 @@ exports.sendMessage = async (req, res) => {
 
         await conversation.save();
 
-        // Populate message details
-        await message.populate('senderId', 'name profilePicture');
+        // Populate message details manually since senderId is not referenced
+        const messageObj = message.toObject();
+        try {
+            const details = messageObj.senderRole === 'student' 
+                ? await Student.findOne({ authId: messageObj.senderId }).select('name profilePicture')
+                : await Alumni.findOne({ authId: messageObj.senderId }).select('name profilePicture');
+            messageObj.senderId = { 
+                _id: messageObj.senderId, 
+                name: details?.name || (messageObj.senderRole === 'student' ? 'Student' : 'Alumni'), 
+                profilePicture: details?.profilePicture 
+            };
+        } catch(e) {
+            messageObj.senderId = { _id: messageObj.senderId, name: 'Unknown User' };
+        }
 
-        res.json(message);
+        res.json(messageObj);
     } catch (error) {
         console.error('Error sending message:', error);
         res.status(500).json({ msg: 'Server Error' });

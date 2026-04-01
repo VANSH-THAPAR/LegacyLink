@@ -64,6 +64,9 @@ const ChatSystem = ({ user }) => {
         const socket = socketManager.connect(token, SOCKET_URL);
         socketRef.current = socket;
 
+        // Set initial connection status immediately
+        setConnectionStatus(socketManager.isConnected() ? 'connected' : 'disconnected');
+
         // Connection status
         const handleConnectionChange = (isConnected) => {
             setConnectionStatus(isConnected ? 'connected' : 'disconnected');
