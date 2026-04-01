@@ -68,9 +68,15 @@ const UniversityDashboard = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const token = localStorage.getItem('token');
+                const headers = {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                };
+
                 const [statsResponse, requestsResponse] = await Promise.all([
-                    fetch(`${import.meta.env.VITE_backend_url}/api/university/stats`),
-                    fetch(`${import.meta.env.VITE_backend_url}/api/university/requests`)
+                    fetch(`${import.meta.env.VITE_backend_url}/university/stats`, { headers }),
+                    fetch(`${import.meta.env.VITE_backend_url}/university/requests`, { headers })
                 ]);
 
                 if (!statsResponse.ok) throw new Error('Stats fetch failed');
@@ -83,54 +89,16 @@ const UniversityDashboard = () => {
                 setRequests(requestsData);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
-                // Set mock data on error so the page still renders
+                // On error, we don't set mock data anymore so it shows 0s instead of fake data
                 setStats({ 
-                    totalAlumni: 2847, 
-                    totalStudents: 3421,
-                    recentAlumni: 127,
-                    alumniByYear: [
-                        { _id: '2019', count: 342 },
-                        { _id: '2020', count: 418 },
-                        { _id: '2021', count: 387 },
-                        { _id: '2022', count: 456 },
-                        { _id: '2023', count: 523 },
-                        { _id: '2024', count: 721 }
-                    ],
-                    studentsByYear: [
-                        { _id: '2021', count: 678 },
-                        { _id: '2022', count: 723 },
-                        { _id: '2023', count: 812 },
-                        { _id: '2024', count: 891 },
-                        { _id: '2025', count: 317 }
-                    ],
-                    alumniByProgram: [
-                        { _id: 'Computer Science', count: 892 },
-                        { _id: 'Business Administration', count: 634 },
-                        { _id: 'Mechanical Engineering', count: 543 },
-                        { _id: 'Electrical Engineering', count: 421 },
-                        { _id: 'Medicine', count: 357 }
-                    ]
+                    totalAlumni: 0, 
+                    totalStudents: 0,
+                    recentAlumni: 0,
+                    alumniByYear: [],
+                    studentsByYear: [],
+                    alumniByProgram: []
                 });
-                setRequests([
-                    {
-                        _id: '1',
-                        name: 'Priya Sharma',
-                        type: 'Alumni Registration',
-                        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face'
-                    },
-                    {
-                        _id: '2',
-                        name: 'Rahul Verma',
-                        type: 'Student Verification',
-                        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face'
-                    },
-                    {
-                        _id: '3',
-                        name: 'Anjali Patel',
-                        type: 'Alumni Registration',
-                        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face'
-                    }
-                ]);
+                setRequests([]);
             } finally {
                 setLoading(false);
             }
@@ -142,10 +110,12 @@ const UniversityDashboard = () => {
     // Handle request approval/rejection
     const handleRequestAction = async (requestId, action) => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_backend_url}/api/university/requests/${requestId}`, {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/university/requests/${requestId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ status: action }),
             });

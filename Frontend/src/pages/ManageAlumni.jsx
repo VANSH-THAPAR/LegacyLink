@@ -34,9 +34,12 @@ const ManageAlumni = () => {
 
     // --- Data Fetching ---
     useEffect(() => {
+        const token = localStorage.getItem('token');
         const fetchFilterMetadata = async () => {
             try {
-                const response = await fetch(`${API_URL}/alumni/metadata`);
+                const response = await fetch(`${API_URL}/alumni/metadata`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 if (!response.ok) throw new Error('Could not load filter options.');
                 const data = await response.json();
                 setFilterOptions(data);
@@ -51,9 +54,12 @@ const ManageAlumni = () => {
         setLoading(true);
         setHasSearched(true);
         setError(null);
+        const token = localStorage.getItem('token');
         const queryParams = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))).toString();
         try {
-            const response = await fetch(`${API_URL}/alumni/get-alumni?${queryParams}`);
+            const response = await fetch(`${API_URL}/alumni/get-alumni?${queryParams}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (!response.ok) throw new Error('Network response was not ok.');
             const data = await response.json();
             setAlumni(data);
@@ -82,10 +88,14 @@ const ManageAlumni = () => {
         const isEditing = Boolean(editingAlumnus);
         const url = isEditing ? `${API_URL}/alumni/update-alumni/${editingAlumnus.StudentId}` : `${API_URL}/alumni/add-alumni`;
         const method = isEditing ? 'PUT' : 'POST';
+        const token = localStorage.getItem('token');
         try {
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(formData),
             });
             const result = await response.json();
@@ -103,7 +113,11 @@ const ManageAlumni = () => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to permanently delete this record?')) {
             try {
-                const response = await fetch(`${API_URL}/alumni/delete-alumni/${studentId}`, { method: 'DELETE' });
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/alumni/delete-alumni/${studentId}`, { 
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to delete record.');
                 alert('Alumni record deleted.');
@@ -120,8 +134,13 @@ const ManageAlumni = () => {
         setLoading(true);
         const formData = new FormData();
         formData.append('alumniFile', file);
+        const token = localStorage.getItem('token');
         try {
-            const response = await fetch(`${API_URL}/alumni/upload`, { method: 'POST', body: formData });
+            const response = await fetch(`${API_URL}/alumni/upload`, { 
+                method: 'POST', 
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData 
+            });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'File upload failed');
             alert(result.message);

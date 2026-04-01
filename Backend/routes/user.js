@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
-const { Student, Alumni, University, User } = require('../models/User');
+const AuthUser = require('../models/AuthUser');
+const Student = require('../models/student');
+const Alumni = require('../models/alumni');
+const University = require('../models/University');
+const AuthController = require('../controllers/authController');
+const { User } = require('../models/UnifiedUser');
 
 // [GET] /api/user/search - Search for any user (Student/Alumni)
 // Query params: ?q=nameOrCheck
@@ -43,22 +48,13 @@ router.get('/search', authMiddleware, async (req, res) => {
 // [GET] /api/user/me - Get logged in user's full data
 router.get('/me', authMiddleware, async (req, res) => {
     try {
-        // req.user is attached by the authMiddleware and contains the user ID and role
-        let user;
-        
-        // Search in the appropriate collection based on role
-        if (req.user.role === 'student') {
-            user = await Student.findById(req.user.id).select('-password');
-        } else if (req.user.role === 'alumni') {
-            user = await Alumni.findById(req.user.id).select('-password');
-        } else if (req.user.role === 'university') {
-            user = await University.findById(req.user.id).select('-password');
-        }
-        
-        if (!user) {
+        const authUser = await AuthUser.findById(req.user.id);
+        if (!authUser) {
             return res.status(404).json({ msg: 'User not found' });
         }
-        res.json(user); // Send the full user object
+
+        const fullUser = await AuthController.getCompleteUserData(authUser);
+        res.json(fullUser);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -71,11 +67,11 @@ router.put('/profile', authMiddleware, async (req, res) => {
         // Find user in appropriate collection based on role
         let user;
         if (req.user.role === 'student') {
-            user = await Student.findById(req.user.id);
+            user = await Student.findOne({ authId: req.user.id });
         } else if (req.user.role === 'alumni') {
-            user = await Alumni.findById(req.user.id);
+            user = await Alumni.findOne({ authId: req.user.id });
         } else if (req.user.role === 'university') {
-            user = await University.findById(req.user.id);
+            user = await University.findOne({ authId: req.user.id });
         }
         
         if (!user) return res.status(404).json({ msg: 'User not found' });
@@ -131,18 +127,11 @@ router.put('/profile', authMiddleware, async (req, res) => {
         await user.save();
         
         // Return the full, updated user object (without the password)
-        let updatedUser;
-        if (req.user.role === 'student') {
-            updatedUser = await Student.findById(req.user.id).select('-password');
-        } else if (req.user.role === 'alumni') {
-            updatedUser = await Alumni.findById(req.user.id).select('-password');
-        } else if (req.user.role === 'university') {
-            updatedUser = await University.findById(req.user.id).select('-password');
-        }
-        
-        console.log('Sending updated user data:', updatedUser);
-        res.json(updatedUser);
+        const updatedAuthUser = await AuthUser.findById(req.user.id);
+        const fullUser = await AuthController.getCompleteUserData(updatedAuthUser);
 
+        console.log('Sending updated user data:', fullUser);
+        res.json(fullUser);
     } catch (err) {
         console.error("Profile Update Error:", err.message);
         res.status(500).send('Server Error');

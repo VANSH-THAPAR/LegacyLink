@@ -108,7 +108,7 @@ const ManageStudents = ({ user, handleLogout }) => {
             if (filterDepartment) params.append('department', filterDepartment);
             if (filterYear) params.append('year', filterYear);
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/all?${params}`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/all?${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
@@ -139,7 +139,7 @@ const ManageStudents = ({ user, handleLogout }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/update/${editingStudent._id}`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/update/${editingStudent._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -173,7 +173,7 @@ const ManageStudents = ({ user, handleLogout }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/delete/${studentId}`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/delete/${studentId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -202,7 +202,7 @@ const ManageStudents = ({ user, handleLogout }) => {
     const fetchStats = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/stats`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/stats`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -226,7 +226,7 @@ const ManageStudents = ({ user, handleLogout }) => {
             const formData = new FormData();
             formData.append('file', file);
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/upload-preview`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/upload-preview`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
@@ -253,7 +253,7 @@ const ManageStudents = ({ user, handleLogout }) => {
         setUploading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/confirm-upload`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/confirm-upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -284,7 +284,7 @@ const ManageStudents = ({ user, handleLogout }) => {
         setLoading(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/eligibility-check`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/eligibility-check`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -318,7 +318,7 @@ const ManageStudents = ({ user, handleLogout }) => {
             if (eligibilityCriteria.eligibleBranches.length > 0) params.append('eligibleBranches', eligibilityCriteria.eligibleBranches.join(','));
             if (eligibilityCriteria.eligibleYears.length > 0) params.append('eligibleYears', eligibilityCriteria.eligibleYears.join(','));
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/student-management/export-eligible?${params}`, {
+            const response = await fetch(`${import.meta.env.VITE_backend_url}/student-management/export-eligible?${params}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 

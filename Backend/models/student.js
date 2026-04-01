@@ -26,6 +26,11 @@ const studentSchema = new mongoose.Schema({
         unique: true,
         trim: true
     },
+    email: {
+        type: String,
+        trim: true,
+        lowercase: true
+    },
     collegeName: {
         type: String,
         required: true,

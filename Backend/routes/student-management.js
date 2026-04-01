@@ -37,7 +37,8 @@ const upload = multer({
 
 // Middleware to check if user is university admin
 const requireUniversityAdmin = (req, res, next) => {
-    if (req.user.role !== 'university') {
+    // Both 'admin' and 'university' are allowed to manage students
+    if (req.user.role !== 'university' && req.user.role !== 'admin') {
         return res.status(403).json({ msg: 'Access denied. University admin role required.' });
     }
     next();
@@ -199,18 +200,32 @@ router.post('/upload-preview', authMiddleware, requireUniversityAdmin, upload.si
 // [POST] /api/student-management/confirm-upload - Save valid students to database
 router.post('/confirm-upload', authMiddleware, requireUniversityAdmin, async (req, res) => {
     try {
-        const { validRows } = req.body;
-
-        if (!validRows || !Array.isArray(validRows) || validRows.length === 0) {
+        const payloadData = req.body.validRows || req.body;
+        
+        let validRowsData = [];
+        if (Array.isArray(payloadData)) {
+            // It could be just an array of items
+            validRowsData = payloadData;
+        } else if (payloadData && Array.isArray(payloadData.validRows)) {
+            // Or the structured validRows payload 
+            validRowsData = payloadData.validRows;
+        }
+        
+        if (!validRowsData || validRowsData.length === 0) {
             return res.status(400).json({ msg: 'No valid students to upload.' });
         }
+
+        // Get university name to set as collegeName
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const universityName = userDetails && userDetails.universityName ? userDetails.universityName : 'Chitkara University';
 
         // Prepare student documents
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash('ChangePassword123', salt); // Default password
         
-        const studentsToInsert = validRows.map(row => {
-            const data = row.data;
+        const studentsToInsert = validRowsData.map(row => {
+            const data = row.data || row; // Handle both wrapper structure and direct structure
             return {
                 name: data.name?.toString().trim(),
                 email: data.email?.toString().toLowerCase().trim(),
@@ -219,10 +234,10 @@ router.post('/confirm-upload', authMiddleware, requireUniversityAdmin, async (re
                 course: data.department?.toString().trim(),
                 year: data.year?.toString().trim(),
                 // Add additional fields for placement eligibility
-                cgpa: parseFloat(data.cgpa),
+                cgpa: parseFloat(data.cgpa) || 0,
                 backlogs: parseInt(data.backlogs) || 0,
                 phone: data.phone?.toString().trim() || '',
-                collegeName: 'Chitkara University', // Fixed: Default to Chitkara University
+                collegeName: universityName, // Set dynamically
                 // Set default password
                 password: hashedPassword
             };
@@ -280,13 +295,19 @@ router.post('/eligibility-check', authMiddleware, requireUniversityAdmin, async 
             query.year = { $in: eligibleYears };
         }
 
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            query.collegeName = userDetails.universityName;
+        }
+
         // Find eligible students
         const eligibleStudents = await Student.find(query)
             .select('-password')
             .sort({ cgpa: -1, name: 1 });
 
         // Get statistics
-        const totalStudents = await Student.countDocuments({ role: 'student' });
+        const totalStudents = await Student.countDocuments(query);
         const eligibleCount = eligibleStudents.length;
         const eligibilityPercentage = totalStudents > 0 ? (eligibleCount / totalStudents * 100).toFixed(2) : 0;
 
@@ -330,6 +351,12 @@ router.get('/export-eligible', authMiddleware, requireUniversityAdmin, async (re
             if (years.length > 0) {
                 query.year = { $in: years };
             }
+        }
+
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            query.collegeName = userDetails.universityName;
         }
 
         // Find eligible students
@@ -377,8 +404,15 @@ router.get('/export-eligible', authMiddleware, requireUniversityAdmin, async (re
 // [GET] /api/student-management/stats - Get student management statistics
 router.get('/stats', authMiddleware, requireUniversityAdmin, async (req, res) => {
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const matchQuery = { role: 'student' };
+        if (userDetails && userDetails.universityName) {
+            matchQuery.collegeName = userDetails.universityName;
+        }
+
         const stats = await Student.aggregate([
-            { $match: { role: 'student' } },
+            { $match: matchQuery },
             {
                 $group: {
                     _id: null,
@@ -392,7 +426,7 @@ router.get('/stats', authMiddleware, requireUniversityAdmin, async (req, res) =>
         ]);
 
         const departmentStats = await Student.aggregate([
-            { $match: { role: 'student' } },
+            { $match: matchQuery },
             {
                 $group: {
                     _id: '$course',
@@ -427,6 +461,12 @@ router.get('/all', authMiddleware, requireUniversityAdmin, async (req, res) => {
         
         // Build query
         const query = { role: 'student' };
+
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            query.collegeName = userDetails.universityName;
+        }
         
         if (search) {
             query.$or = [

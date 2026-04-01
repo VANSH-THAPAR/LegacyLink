@@ -81,9 +81,16 @@ const mapExcelKeysToSchema = (record) => {
 };
 
 // --- GET: Fetch alumni (GET /api/alumni/get-alumni) ---
-router.get('/get-alumni', async (req, res) => {
+router.get('/get-alumni', authMiddleware, async (req, res) => {
     try {
         const query = {};
+        
+        // Ensure we load alumni only from the logged-in university's collegeName
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            query.collegeName = userDetails.universityName;
+        }
         
         // Map frontend filters to schema fields
         if (req.query.name) query.name = { $regex: new RegExp(req.query.name, 'i') };
@@ -107,14 +114,19 @@ router.get('/get-alumni', async (req, res) => {
 });
 
 // --- GET: Metadata for filters (GET /api/alumni/metadata) ---
-router.get('/metadata', async (req, res) => {
+router.get('/metadata', authMiddleware, async (req, res) => {
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const matchQuery = userDetails && userDetails.universityName ? { collegeName: userDetails.universityName } : {};
+        
         console.log('GET /api/alumni/metadata - HIT!');
+        
         const [batchYears, degreePrograms, genders, professions] = await Promise.all([
-            Alumni.distinct('batchYear'),
-            Alumni.distinct('degreeProgram'),
-            Alumni.distinct('gender'),
-            Alumni.distinct('profession')
+            Alumni.distinct('batchYear', matchQuery),
+            Alumni.distinct('degreeProgram', matchQuery),
+            Alumni.distinct('gender', matchQuery),
+            Alumni.distinct('profession', matchQuery)
         ]);
         res.status(200).json({
             batchYears: batchYears.filter(Boolean).sort((a, b) => b - a),
@@ -129,8 +141,14 @@ router.get('/metadata', async (req, res) => {
 });
 
 // --- POST: Add a single alumnus (POST /api/alumni/add-alumni) ---
-router.post("/add-alumni", async (req, res) => {
+router.post("/add-alumni", authMiddleware, async (req, res) => {
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            req.body.collegeName = userDetails.universityName;
+        }
+
         console.log('POST /api/alumni/add-alumni - HIT!');
         const createAlumni = await Alumni.create(req.body);
         res.status(201).json(createAlumni);
@@ -144,12 +162,16 @@ router.post("/add-alumni", async (req, res) => {
 });
 
 // --- POST: Bulk Upload Alumni (POST /api/alumni/upload) ---
-router.post('/upload', upload.single('alumniFile'), async (req, res) => {
+router.post('/upload', authMiddleware, upload.single('alumniFile'), async (req, res) => {
     console.log('POST /api/alumni/upload - HIT!');
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded." });
     }
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const universityName = userDetails && userDetails.universityName ? userDetails.universityName : 'Chitkara University';
+
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -193,7 +215,8 @@ router.post('/upload', upload.single('alumniFile'), async (req, res) => {
                 // Default password generation (better to use bcrypt here, but for now simple string)
                  // NOTE: In production, hash this password!
                 if(!mappedRecord.password) mappedRecord.password = '$2a$10$fbO6T7yB0.dDq.y/Wp/oO.j7l7W/y/Wp/oO.j7l7W'; // "changeMe" hash placeholder
-                
+                mappedRecord.collegeName = universityName;
+
                 validRecords.push(mappedRecord);
                 return mappedRecord;
             }
@@ -229,17 +252,26 @@ router.post('/upload', upload.single('alumniFile'), async (req, res) => {
 });
 
 // --- PUT: Update an alumnus (PUT /api/alumni/update-alumni/:StudentId) ---
-router.put('/update-alumni/:StudentId', async (req, res) => {
+router.put('/update-alumni/:StudentId', authMiddleware, async (req, res) => {
     try {
         const { StudentId } = req.params;
         console.log(`PUT /api/alumni/update-alumni/${StudentId} - HIT!`);
+        
+        let updateQuery = { rollNumber: StudentId }; // Using rollNumber as it maps to StudentId in the DB
+        
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            updateQuery.collegeName = userDetails.universityName;
+        }
+
         const updatedAlumni = await Alumni.findOneAndUpdate(
-            { StudentId: StudentId },
+            updateQuery,
             req.body,
             { new: true, runValidators: true }
         );
         if (!updatedAlumni) {
-            return res.status(404).json({ message: "Alumni not found with that Student ID" });
+            return res.status(404).json({ message: "Alumni not found with that Student ID or you don't have permission" });
         }
         res.status(200).json(updatedAlumni);
     } catch (err) {
@@ -249,13 +281,22 @@ router.put('/update-alumni/:StudentId', async (req, res) => {
 });
 
 // --- DELETE: Delete an alumnus (DELETE /api/alumni/delete-alumni/:StudentId) ---
-router.delete('/delete-alumni/:StudentId', async (req, res) => {
+router.delete('/delete-alumni/:StudentId', authMiddleware, async (req, res) => {
     try {
         const { StudentId } = req.params;
         console.log(`DELETE /api/alumni/delete-alumni/${StudentId} - HIT!`);
-        const deletedAlumni = await Alumni.findOneAndDelete({ StudentId: StudentId });
+        
+        let deleteQuery = { rollNumber: StudentId };
+        
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            deleteQuery.collegeName = userDetails.universityName;
+        }
+
+        const deletedAlumni = await Alumni.findOneAndDelete(deleteQuery);
         if (!deletedAlumni) {
-            return res.status(404).json({ message: "Alumni with that Student ID not found." });
+            return res.status(404).json({ message: "Alumni with that Student ID not found or you don't have permission." });
         }
         res.status(200).json({ message: "Alumni deleted successfully." });
     } catch (err) {
