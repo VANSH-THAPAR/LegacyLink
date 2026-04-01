@@ -90,12 +90,15 @@ const ManageStudents = ({ user, handleLogout }) => {
 
     useEffect(() => {
         if (activeTab === 'manage') {
-            const debounceTimer = setTimeout(() => {
-                fetchStudents();
-            }, 300);
-            return () => clearTimeout(debounceTimer);
+            fetchStudents();
         }
-    }, [searchTerm, filterDepartment, filterYear, pagination.page]);
+    }, [pagination.page]);
+
+    const handleSearchClick = () => {
+        // Reset to first page on new search
+        setPagination(prev => ({ ...prev, page: 1 }));
+        fetchStudents();
+    };
 
     const fetchStudents = async () => {
         setLoading(true);
@@ -456,7 +459,7 @@ const ManageStudents = ({ user, handleLogout }) => {
                                     <h2 className="text-lg font-semibold text-slate-900 mb-4">All Students</h2>
                                     
                                     {/* Search and Filters */}
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                                         <div className="relative">
                                             <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                                             <input
@@ -464,6 +467,7 @@ const ManageStudents = ({ user, handleLogout }) => {
                                                 placeholder="Search students..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') handleSearchClick(); }}
                                                 className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             />
                                         </div>
@@ -490,7 +494,15 @@ const ManageStudents = ({ user, handleLogout }) => {
                                             ))}
                                         </select>
                                         
-                                        <div className="text-sm text-slate-500 py-2">
+                                        <button 
+                                            onClick={handleSearchClick}
+                                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                                        >
+                                            <SearchIcon className="w-4 h-4" />
+                                            <span>Search</span>
+                                        </button>
+                                        
+                                        <div className="text-sm text-slate-500 py-2 md:col-span-5">
                                             {pagination.total} students found
                                         </div>
                                     </div>

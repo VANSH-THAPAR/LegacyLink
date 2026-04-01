@@ -4,6 +4,7 @@ const Student = require('../models/student'); // <-- Use Student model
 const multer = require('multer');
 const xlsx = require('xlsx');
 const cloudinary = require('cloudinary').v2;
+const authMiddleware = require('../middleware/authMiddleware');
 
 // --- Multer Configuration ---
 const storage = multer.memoryStorage();
@@ -41,11 +42,18 @@ const mapExcelKeysToSchema = (record) => {
 };
 
 // --- GET: Fetch students (GET /api/students/get-students) ---
-router.get('/get-students', async (req, res) => {
+router.get('/get-students', authMiddleware, async (req, res) => {
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        
         // --- Simplified search fields ---
         const stringSearchFields = ['name', 'StudentId', 'universityEmail', 'personalEmail', 'degreeProgram', 'nationality'];
         const query = {};
+        if (userDetails && userDetails.universityName) {
+            query.collegeName = userDetails.universityName;
+        }
+
         for (const key in req.query) {
             if (Object.prototype.hasOwnProperty.call(req.query, key) && req.query[key]) {
                 if (stringSearchFields.includes(key)) {
@@ -65,14 +73,18 @@ router.get('/get-students', async (req, res) => {
 });
 
 // --- GET: Metadata for filters (GET /api/students/metadata) ---
-router.get('/metadata', async (req, res) => {
+router.get('/metadata', authMiddleware, async (req, res) => {
     try {
         console.log('GET /api/students/metadata - HIT!');
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const matchQuery = userDetails && userDetails.universityName ? { collegeName: userDetails.universityName } : {};
+
         // --- Simplified metadata ---
-        const [batchYears, degreePrograms, genders] = await Promise.all([
-            Student.distinct('batchYear'),
-            Student.distinct('degreeProgram'),
-            Student.distinct('gender')
+        const [batchYears, degreePrograms, genders] = await Promise.all([       
+            Student.distinct('batchYear', matchQuery),
+            Student.distinct('degreeProgram', matchQuery),
+            Student.distinct('gender', matchQuery)
         ]);
         res.status(200).json({
             batchYears: batchYears.filter(Boolean).sort((a, b) => b - a),
@@ -87,9 +99,15 @@ router.get('/metadata', async (req, res) => {
 });
 
 // --- POST: Add a single student (POST /api/students/add-student) ---
-router.post("/add-student", async (req, res) => {
+router.post("/add-student", authMiddleware, async (req, res) => {
     try {
         console.log('POST /api/students/add-student - HIT!');
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        if (userDetails && userDetails.universityName) {
+            req.body.collegeName = userDetails.universityName;
+        }
+
         const createStudent = await Student.create(req.body); // <-- Use Student model
         res.status(201).json(createStudent);
     } catch (err) {
@@ -102,12 +120,16 @@ router.post("/add-student", async (req, res) => {
 });
 
 // --- POST: Bulk Upload Students (POST /api/students/upload) ---
-router.post('/upload', upload.single('studentFile'), async (req, res) => {
+router.post('/upload', authMiddleware, upload.single('studentFile'), async (req, res) => {
     console.log('POST /api/students/upload - HIT!');
     if (!req.file) {
         return res.status(400).json({ message: "No file uploaded. Make sure the form field name is 'studentFile'." });
     }
     try {
+        const University = require('../models/University');
+        const userDetails = await University.findOne({ authId: req.user.id });
+        const universityName = userDetails && userDetails.universityName ? userDetails.universityName : 'Chitkara University';
+
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
@@ -120,6 +142,7 @@ router.post('/upload', upload.single('studentFile'), async (req, res) => {
         // --- Use Student data transformation ---
         const transformedData = jsonData.map(record => {
             const mappedRecord = mapExcelKeysToSchema(record);
+            mappedRecord.collegeName = universityName; // Force college name
             if (mappedRecord.dob) {
                 let excelDate;
                 if (typeof mappedRecord.dob === 'number') {
@@ -166,7 +189,7 @@ router.post('/upload', upload.single('studentFile'), async (req, res) => {
 });
 
 // --- PUT: Update a student (PUT /api/students/update-student/:StudentId) ---
-router.put('/update-student/:StudentId', async (req, res) => {
+router.put('/update-student/:StudentId', authMiddleware, async (req, res) => {
     try {
         const { StudentId } = req.params;
         console.log(`PUT /api/students/update-student/${StudentId} - HIT!`);
@@ -186,7 +209,7 @@ router.put('/update-student/:StudentId', async (req, res) => {
 });
 
 // --- DELETE: Delete a student (DELETE /api/students/delete-student/:StudentId) ---
-router.delete('/delete-student/:StudentId', async (req, res) => {
+router.delete('/delete-student/:StudentId', authMiddleware, async (req, res) => {
     try {
         const { StudentId } = req.params;
         console.log(`DELETE /api/students/delete-student/${StudentId} - HIT!`);

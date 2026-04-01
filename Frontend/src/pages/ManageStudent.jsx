@@ -45,8 +45,11 @@ const ManageStudent = () => {
     useEffect(() => {
         const fetchFilterMetadata = async () => {
             try {
+                const token = localStorage.getItem('token');
                 // IMPORTANT: Make sure this backend endpoint exists
-                const response = await fetch(`${import.meta.env.VITE_backend_url}/student-metadata`);
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/students/student-metadata`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 if (!response.ok) throw new Error('Could not load filter options.');
                 const data = await response.json();
                 setFilterOptions(data);
@@ -63,8 +66,11 @@ const ManageStudent = () => {
         setError(null);
         const queryParams = new URLSearchParams(Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))).toString();
         try {
+            const token = localStorage.getItem('token');
             // IMPORTANT: Changed API endpoint
-            const response = await fetch(`${import.meta.env.VITE_backend_url}/get-students?${queryParams}`);
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/students/get-students?${queryParams}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (!response.ok) throw new Error('Network response was not ok.');
             const data = await response.json();
             setStudents(data);
@@ -92,13 +98,17 @@ const ManageStudent = () => {
     const handleFormSubmit = async (formData) => {
         const isEditing = Boolean(editingStudent);
         // IMPORTANT: Changed API endpoints
-        const url = isEditing ? `${import.meta.env.VITE_backend_url}/update-student/${editingStudent.StudentId}` : `${import.meta.env.VITE_backend_url}/add-student`;
+        const url = isEditing ? `${import.meta.env.VITE_API_URL}/students/update-student/${editingStudent.StudentId}` : `${import.meta.env.VITE_API_URL}/students/add-student`;
         const method = isEditing ? 'PUT' : 'POST';
-        
+
         try {
+            const token = localStorage.getItem('token');
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(formData),
             });
             const result = await response.json();
@@ -117,8 +127,12 @@ const ManageStudent = () => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to permanently delete this record?')) {
             try {
+                const token = localStorage.getItem('token');
                  // IMPORTANT: Changed API endpoint
-                const response = await fetch(`${import.meta.env.VITE_backend_url}/delete-student/${studentId}`, { method: 'DELETE' });
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/students/delete-student/${studentId}`, { 
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to delete record.');
                 
@@ -137,8 +151,13 @@ const ManageStudent = () => {
         const formData = new FormData();
         formData.append('studentFile', file);
         try {
+            const token = localStorage.getItem('token');
              // IMPORTANT: Changed API endpoint
-            const response = await fetch(`${import.meta.env.VITE_backend_url}/upload-students`, { method: 'POST', body: formData });
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/students/upload-students`, { 
+                method: 'POST', 
+                body: formData,
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             const result = await response.json();
             if (!response.ok) throw new Error(result.message || 'File upload failed');
             

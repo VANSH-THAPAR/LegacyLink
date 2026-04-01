@@ -36,6 +36,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/alumni', require('./routes/alumniRoutes'));
 app.use('/api/student', require('./routes/student'));
+app.use('/api/students', require('./routes/studentRoutes'));
 app.use('/api/student-management', require('./routes/student-management'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));

@@ -4,7 +4,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const bcrypt = require('bcryptjs');
 const authMiddleware = require('../middleware/authMiddleware');
-const { Student } = require('../models/UnifiedUser'); // Updated to UnifiedUser
+const Student = require('../models/student');
 const migrationController = require('../controllers/migrationController');
 
 // Debug route - no auth required
@@ -282,7 +282,6 @@ router.post('/eligibility-check', authMiddleware, requireUniversityAdmin, async 
 
         // Build query
         const query = {
-            role: 'student',
             cgpa: { $gte: minCGPA },
             backlogs: { $lte: maxBacklogs }
         };
@@ -334,7 +333,6 @@ router.get('/export-eligible', authMiddleware, requireUniversityAdmin, async (re
 
         // Build query
         const query = {
-            role: 'student',
             cgpa: { $gte: parseFloat(minCGPA) || 0 },
             backlogs: { $lte: parseInt(maxBacklogs) || 10 }
         };
@@ -406,7 +404,7 @@ router.get('/stats', authMiddleware, requireUniversityAdmin, async (req, res) =>
     try {
         const University = require('../models/University');
         const userDetails = await University.findOne({ authId: req.user.id });
-        const matchQuery = { role: 'student' };
+        const matchQuery = {};
         if (userDetails && userDetails.universityName) {
             matchQuery.collegeName = userDetails.universityName;
         }
@@ -460,7 +458,7 @@ router.get('/all', authMiddleware, requireUniversityAdmin, async (req, res) => {
         const { page = 1, limit = 50, search, department, year } = req.query;
         
         // Build query
-        const query = { role: 'student' };
+        const query = {};
 
         const University = require('../models/University');
         const userDetails = await University.findOne({ authId: req.user.id });
@@ -468,7 +466,7 @@ router.get('/all', authMiddleware, requireUniversityAdmin, async (req, res) => {
             query.collegeName = userDetails.universityName;
         }
         
-        if (search) {
+        if (search && search !== 'undefined' && search !== 'null' && search !== '') {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { email: { $regex: search, $options: 'i' } },
@@ -476,23 +474,30 @@ router.get('/all', authMiddleware, requireUniversityAdmin, async (req, res) => {
             ];
         }
         
-        if (department) {
-            query.course = department;
+        if (department && department !== 'undefined' && department !== 'null' && department !== '') {
+            query.course = new RegExp(`^${department}$`, 'i');
         }
         
-        if (year) {
-            query.year = year;
+        if (year && year !== 'undefined' && year !== 'null' && year !== '') {
+            query.year = new RegExp(`^${year}$`, 'i');
         }
+        
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 50;
+        
+        console.log('GET /api/student-management/all - HIT! Query:', query);
         
         // Get students with pagination
         const students = await Student.find(query)
             .select('-password')
             .sort({ name: 1 })
-            .limit(limit * 1)
-            .skip((page - 1) * limit);
+            .limit(limitNum)
+            .skip((pageNum - 1) * limitNum);
         
         // Get total count for pagination
         const total = await Student.countDocuments(query);
+        
+        console.log(`Found students count: ${students.length} / ${total}`);
         
         res.json({
             students,
@@ -522,7 +527,7 @@ router.put('/update/:studentId', authMiddleware, requireUniversityAdmin, async (
         }
         
         // Find student
-        const student = await Student.findOne({ _id: studentId, role: 'student' });
+        const student = await Student.findOne({ _id: studentId });
         if (!student) {
             return res.status(404).json({ msg: 'Student not found.' });
         }
@@ -547,10 +552,9 @@ router.put('/update/:studentId', authMiddleware, requireUniversityAdmin, async (
                     updates[field] = backlogs;
                 } else if (field === 'email') {
                     // Check if email is already used by another student
-                    const existingStudent = await Student.findOne({ 
-                        email: updateData[field], 
-                        _id: { $ne: studentId },
-                        role: 'student' 
+                    const existingStudent = await Student.findOne({
+                        email: updateData[field],
+                        _id: { $ne: studentId }
                     });
                     if (existingStudent) {
                         return res.status(400).json({ msg: 'Email is already in use by another student.' });
@@ -593,8 +597,8 @@ router.delete('/delete/:studentId', authMiddleware, requireUniversityAdmin, asyn
             return res.status(400).json({ msg: 'Student ID is required.' });
         }
         
-        const student = await Student.findOneAndDelete({ _id: studentId, role: 'student' });
-        
+        const student = await Student.findOneAndDelete({ _id: studentId });
+
         if (!student) {
             return res.status(404).json({ msg: 'Student not found.' });
         }
