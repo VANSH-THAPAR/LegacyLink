@@ -280,36 +280,38 @@ const ChatSystem = ({ user }) => {
     // Send message
     const sendMessage = async (e) => {
         e.preventDefault();
-        if (!newMessage.trim() || !selectedConversation || connectionStatus !== 'connected') return;
+        if (!newMessage.trim() || !selectedConversation) return;
 
         const messageContent = newMessage.trim();
         setNewMessage('');
 
         try {
-            // Send via Socket.IO for real-time delivery
-            socketManager.emit('sendMessage', {
-                conversationId: selectedConversation._id,
-                content: messageContent,
-                messageType: 'text'
-            });
-
-            // Fallback to HTTP if Socket.IO fails
-            const token = localStorage.getItem('token');
-            const response = await fetch(`${API_URL}/messages/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            if (connectionStatus === 'connected' && socketManager.socket?.connected) {
+                // Send via Socket.IO for real-time delivery
+                socketManager.emit('sendMessage', {
                     conversationId: selectedConversation._id,
                     content: messageContent,
                     messageType: 'text'
-                })
-            });
+                });
+            } else {
+                // Fallback to HTTP if Socket.IO is disconnected
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/messages/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        conversationId: selectedConversation._id,
+                        content: messageContent,
+                        messageType: 'text'
+                    })
+                });
 
-            if (!response.ok) {
-                throw new Error('Failed to send message');
+                if (!response.ok) {
+                    throw new Error('Failed to send message');
+                }
             }
         } catch (error) {
             console.error('Error sending message:', error);
@@ -747,7 +749,6 @@ const ChatSystem = ({ user }) => {
                                         onChange={handleTyping}
                                         placeholder={`Message ${getConversationDisplayName(selectedConversation)}...`} 
                                         className="w-full bg-slate-100 border-transparent rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-cyan-500 pr-12"
-                                        disabled={connectionStatus !== 'connected'}
                                     />
                                     
                                     <button 
@@ -760,7 +761,7 @@ const ChatSystem = ({ user }) => {
                                 
                                 <button 
                                     type="submit"
-                                    disabled={!newMessage.trim() || connectionStatus !== 'connected'}
+                                    disabled={!newMessage.trim()}
                                     className="p-3 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                                 >
                                     <Send className="w-5 h-5" />
@@ -768,8 +769,8 @@ const ChatSystem = ({ user }) => {
                             </div>
                             
                             {connectionStatus !== 'connected' && (
-                                <p className="text-xs text-red-500 mt-2 text-center">
-                                    Connection lost. Messages will be sent when reconnected.
+                                <p className="text-xs text-amber-500 mt-2 text-center">
+                                    Connection lost. Sending message via fallback network...
                                 </p>
                             )}
                         </form>
