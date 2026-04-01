@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import EditProfileButton from './EditProfileButton';
-import MessagesPageWithBackend from './MessagesPageWithBackend';
+import ChatSystem from './ChatSystem';
 import NetworkPageWithBackend from './NetworkPageWithBackend';
 import EventsPageWithBackend from './EventsPageWithBackend';
 import OpportunitiesPage from './OpportunitiesPage'
@@ -127,6 +127,9 @@ const SidebarLink = ({ icon: Icon, text, active, onClick }) => (
 const Header = ({ alumni, setActivePage, handleLogout }) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
+    
+    // Extract profile data from the new authentication structure
+    const profileData = alumni.profile || alumni;
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -146,7 +149,7 @@ const Header = ({ alumni, setActivePage, handleLogout }) => {
         className="flex items-center justify-between"
     >
         <div className="overflow-hidden">
-            <h2 className="text-3xl font-bold text-slate-800 truncate">Welcome back, {alumni.name.split(' ')[0]}!</h2>
+            <h2 className="text-3xl font-bold text-slate-800 truncate">Welcome back, {(profileData.name || 'Alumni').split(' ')[0]}!</h2>
             <p className="text-slate-500 mt-1 truncate">Here's what's happening with your network today.</p>
         </div>
         <div className="flex items-center gap-4 flex-shrink-0">
@@ -160,8 +163,8 @@ const Header = ({ alumni, setActivePage, handleLogout }) => {
             <div className="relative" ref={dropdownRef}>
                 <motion.button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2 p-1.5 rounded-full hover:bg-slate-100 transition-colors">
                     <img 
-                        src={alumni.profilePicture || alumni.imageUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128&h=128&fit=crop&crop=face'} 
-                        alt={alumni.name || 'User'} 
+                        src={profileData.profilePicture || profileData.imageUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128&h=128&fit=crop&crop=face'} 
+                        alt={profileData.name || 'User'} 
                         className="w-10 h-10 rounded-full object-cover" 
                     />
                     <ChevronDown size={16} className={`text-slate-500 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}/>
@@ -175,8 +178,8 @@ const Header = ({ alumni, setActivePage, handleLogout }) => {
                         className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 z-20"
                     >
                         <div className="p-2 border-b border-slate-100 mb-2">
-                            <p className="font-bold text-slate-800 truncate">{alumni.name}</p>
-                            <p className="text-sm text-slate-500 truncate">{alumni.position}</p>
+                            <p className="font-bold text-slate-800 truncate">{profileData.name || 'Alumni User'}</p>
+                            <p className="text-sm text-slate-500 truncate">{profileData.position || 'Position not specified'}</p>
                         </div>
                         <button onClick={() => { setActivePage('Profile'); setDropdownOpen(false); }} className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700"><User size={16}/> View Profile</button>
                         <button onClick={() => setDropdownOpen(false)} className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-100 text-slate-700"><Settings size={16}/> Settings</button>
@@ -194,10 +197,13 @@ const Header = ({ alumni, setActivePage, handleLogout }) => {
 // **CORRECTION**: Moved all page components outside the main AlumniDashboard component
 
 const AlumniDashboardPage = ({ alumni = {}, setActivePage }) => {
+    // Extract profile data from the new authentication structure
+    const profileData = alumni.profile || alumni;
+    
     // Set default values if properties are missing
-    const menteesCount = alumni.mentees || 0;
-    const connectionsCount = alumni.connections || 0;
-    const profileViewsCount = alumni.profileViews || 0;
+    const menteesCount = alumni.mentees || profileData.mentees || 0;
+    const connectionsCount = alumni.connections || profileData.connections || 0;
+    const profileViewsCount = alumni.profileViews || profileData.profileViews || 0;
     
     // Calculate actual profile completion percentage
     const calculateProfileCompletion = (user) => {
@@ -561,7 +567,8 @@ const MessagesPage = () => {
     );
 };
 
-const NetworkPage = () => (
+const NetworkPage = () => {
+    return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <h2 className="text-3xl font-bold text-slate-800">My Network</h2>
         <p className="text-slate-500 mt-1">Connect with fellow alumni and expand your professional circle.</p>
@@ -587,6 +594,7 @@ const NetworkPage = () => (
         </div>
     </motion.div>
 );
+};
 
 const EventsPage = () => (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -638,26 +646,30 @@ const EventsPage = () => (
     </motion.div>
 );
 
-const ProfilePage = ({ alumni, setUser }) => (
+const ProfilePage = ({ alumni, setUser }) => {
+    // Extract profile data from the new authentication structure
+    const profileData = alumni.profile || alumni;
+    
+    return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-12 gap-8">
         <div className="col-span-12 lg:col-span-4">
             <motion.div initial={{ opacity: 0, y:20 }} animate={{opacity: 1, y:0}} transition={{delay: 0.1}} className="bg-white p-6 rounded-2xl border border-slate-200 text-center flex flex-col items-center sticky top-8 shadow-sm">
-                <img src={alumni.profilePicture || alumni.imageUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128&h=128&fit=crop&crop=face'} alt={alumni.name} className="w-32 h-32 rounded-full ring-4 ring-cyan-500/30 object-cover" />
-                <h3 className="mt-4 text-2xl font-bold text-slate-800 truncate">{alumni.name || 'Alumni User'}</h3>
-                <p className="text-cyan-600 font-medium truncate">{alumni.position || 'Position not specified'}</p>
-                {alumni.company && (
+                <img src={profileData.profilePicture || profileData.imageUrl || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=128&h=128&fit=crop&crop=face'} alt={profileData.name} className="w-32 h-32 rounded-full ring-4 ring-cyan-500/30 object-cover" />
+                <h3 className="mt-4 text-2xl font-bold text-slate-800 truncate">{profileData.name || 'Alumni User'}</h3>
+                <p className="text-cyan-600 font-medium truncate">{profileData.position || 'Position not specified'}</p>
+                {profileData.company && (
                     <div className="mt-2 flex items-center gap-1.5 text-slate-500 text-sm">
-                        <Building size={14}/> {alumni.company}
+                        <Building size={14}/> {profileData.company}
                     </div>
                 )}
-                {alumni.location && (
+                {profileData.location && (
                     <div className="mt-1 flex items-center gap-1.5 text-slate-500 text-sm">
-                        <MapPin size={14}/> {alumni.location}
+                        <MapPin size={14}/> {profileData.location}
                     </div>
                 )}
-                {alumni.industry && (
+                {profileData.industry && (
                     <div className="mt-1 flex items-center gap-1.5 text-slate-500 text-sm">
-                        <Briefcase size={14}/> {alumni.industry}
+                        <Briefcase size={14}/> {profileData.industry}
                     </div>
                 )}
                 {alumni.linkedin && (
@@ -771,12 +783,15 @@ const ProfilePage = ({ alumni, setUser }) => (
         </div>
     </motion.div>
 );
-
+}
 // --- DONATION MODAL COMPONENT ---
 
 const DonationModal = ({ isOpen, onClose, alumni }) => {
     const presetAmounts = [500, 1000, 2500, 5000];
     const causes = ['Scholarship Fund', 'Campus Development', 'Research & Innovation'];
+
+    // Extract profile data from the new authentication structure
+    const profileData = alumni.profile || alumni;
 
     const [step, setStep] = useState(1);
     const [amount, setAmount] = useState(1000);
@@ -786,7 +801,7 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
     
     const [cardDetails, setCardDetails] = useState({
         number: '•••• •••• •••• ••••',
-        name: alumni.name.toUpperCase(),
+        name: profileData.name?.toUpperCase() || 'ALUMNI USER',
         expiry: '••/••',
     });
 
@@ -794,7 +809,7 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
         if (isOpen) {
             resetForm();
         }
-    }, [isOpen, alumni.name]); // Added alumni.name dependency
+    }, [isOpen, profileData.name]); // Added profileData.name dependency
 
     const handleAmountSelect = (val) => {
         setAmount(val);
@@ -816,7 +831,7 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
             formattedValue = value.replace(/[^\d]/g, '').replace(/(.{2})/, '$1/').trim().slice(0, 5);
         }
         setCardDetails(prev => ({...prev, [name]: formattedValue }));
-    }
+    };
 
     const handlePayment = () => {
         setIsProcessing(true);
@@ -831,8 +846,8 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
         setAmount(1000);
         setCustomAmount('');
         setCause('Scholarship Fund');
-        setCardDetails({ number: '•••• •••• •••• ••••', name: alumni.name.toUpperCase(), expiry: '••/••' });
-    }
+        setCardDetails({ number: '•••• •••• •••• ••••', name: profileData.name?.toUpperCase() || 'ALUMNI USER', expiry: '••/••' });
+    };
 
     const StepIndicator = ({ currentStep }) => (
         <div className="flex items-center gap-2 mb-6">
@@ -928,7 +943,7 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
                                 {step === 3 && (
                                      <motion.div key="step3" initial={{opacity:0, scale:0.8}} animate={{opacity:1, scale:1}} className="text-center flex flex-col items-center justify-center h-full min-h-[450px]">
                                         <CheckCircle2 className="text-green-500" size={80} />
-                                        <h3 className="text-2xl font-bold text-slate-800 mt-4">Thank You, {alumni.name.split(' ')[0]}!</h3>
+                                        <h3 className="text-2xl font-bold text-slate-800 mt-4">Thank You, {(profileData.name || 'Alumni User').split(' ')[0]}!</h3>
                                         <p className="text-slate-500 mt-1">Your generous donation of <span className="font-bold text-cyan-600">₹{amount.toLocaleString('en-IN')}</span> for the "{cause}" has been received.</p>
                                         <button onClick={resetForm} className="w-full mt-8 bg-slate-200 text-slate-700 font-bold py-3 rounded-lg hover:bg-slate-300 transition-all">Make Another Donation</button>
                                     </motion.div>
@@ -951,8 +966,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
     const renderPage = () => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
-            case 'Messages': return <MessagesPageWithBackend user={user} />;
-            case 'Opportunities': return <OpportunitiesPage user={user} userRole="alumni" />;
+            case 'Messages': return <ChatSystem user={user} />;
             case 'Network': return <NetworkPageWithBackend user={user} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
