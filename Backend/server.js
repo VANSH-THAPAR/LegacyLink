@@ -28,31 +28,8 @@ app.use(express.json({ limit: '10mb' }));
 // Removed overly verbose performance middleware to reduce log noise as requested
 
 // --- WebSocket Logic ---
-io.on('connection', (socket) => {
-    console.log('New client connected:', socket.id);
-
-    // Join a private room based on userId (sent from client)
-    socket.on('join_room', (userId) => {
-        if (userId) {
-            socket.join(userId);
-            console.log(`User ${userId} joined room ${userId}`);
-        }
-    });
-
-    // Handle sending messages (Real-time relay)
-    socket.on('send_message', (data) => {
-        // data should contain { recipientId, message, senderName ... }
-        // Emit to the specific recipient's room
-        if (data.recipientId) {
-            io.to(data.recipientId).emit('receive_message', data);
-            // Also emit back to sender so they see it confirmed (optional if they update UI optimistically)
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-    });
-});
+const SocketHandler = require('./socket/socketHandler');
+const socketHandler = new SocketHandler(io);
 
 // --- API Routes ---
 app.use('/api/auth', require('./routes/auth'));
@@ -64,7 +41,7 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/opportunities', require('./routes/opportunities'));
 app.use('/api/university', require('./routes/university'));
-app.use('/api/', require('./routes/dashboardRoutes')); // Kept for legacy compatibility
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // --- Server Initialization ---
 const PORT = process.env.PORT || 5000;
