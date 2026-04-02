@@ -106,6 +106,17 @@ const mapExcelKeysToSchema = (record) => {
     if (!newRecord.collegeName) newRecord.collegeName = 'Chitkara University';
     if (!newRecord.password) newRecord.password = '$2a$10$fbO6T7yB0.dDq.y/Wp/oO.j7l7W/y/Wp/oO.j7l7W'; 
     
+    // Automatically determine batch year from roll number if not explicitly provided or to fix inconsistencies
+    if (newRecord.rollNumber) {
+        const strRoll = String(newRecord.rollNumber).trim();
+        if (strRoll.length >= 2) {
+            const yearPart = parseInt(strRoll.substring(0, 2), 10);
+            if (!isNaN(yearPart)) {
+                newRecord.batchYear = 2000 + yearPart; // e.g. '24' -> 2024
+            }
+        }
+    }
+
     return newRecord;
 };
 
@@ -182,6 +193,17 @@ router.post("/add-alumni", authMiddleware, async (req, res) => {
         if ('CompanyName' in req.body) mappedBody.company = req.body.CompanyName;
         if ('LinkedInURL' in req.body) mappedBody.linkedin = req.body.LinkedInURL;
         if ('ProfilePicture' in req.body) mappedBody.profilePicture = req.body.ProfilePicture;
+        
+        // Extract Batch Year from Roll Number automatically
+        if (mappedBody.rollNumber) {
+            const strRoll = String(mappedBody.rollNumber).trim();
+            if (strRoll.length >= 2) {
+                const yearPart = parseInt(strRoll.substring(0, 2), 10);
+                if (!isNaN(yearPart)) {
+                    mappedBody.batchYear = 2000 + yearPart; // '24' -> 2024
+                }
+            }
+        }
         
         if (userDetails && userDetails.universityName) {
             mappedBody.collegeName = userDetails.universityName;
@@ -315,6 +337,17 @@ router.put('/update-alumni/:StudentId', authMiddleware, async (req, res) => {
         if ('CompanyName' in req.body) mappedBody.company = req.body.CompanyName;
         if ('LinkedInURL' in req.body) mappedBody.linkedin = req.body.LinkedInURL;
         if ('ProfilePicture' in req.body) mappedBody.profilePicture = req.body.ProfilePicture;
+
+        // Auto update Batch Year from Roll Number
+        if (mappedBody.rollNumber) {
+            const strRoll = String(mappedBody.rollNumber).trim();
+            if (strRoll.length >= 2) {
+                const yearPart = parseInt(strRoll.substring(0, 2), 10);
+                if (!isNaN(yearPart)) {
+                    mappedBody.batchYear = 2000 + yearPart;
+                }
+            }
+        }
 
         const updatedAlumni = await Alumni.findOneAndUpdate(
             updateQuery,
