@@ -51,6 +51,14 @@ const alumniSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    profession: {
+        type: String,
+        trim: true
+    },
+    work: {
+        type: String,
+        trim: true
+    },
     industry: {
         type: String,
         trim: true
@@ -65,6 +73,11 @@ const alumniSchema = new mongoose.Schema({
     },
     
     // Contact Information
+    email: {
+        type: String,
+        lowercase: true,
+        trim: true
+    },
     personalEmail: {
         type: String,
         lowercase: true,

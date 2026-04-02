@@ -174,12 +174,23 @@ router.post("/add-alumni", authMiddleware, async (req, res) => {
     try {
         const University = require('../models/University');
         const userDetails = await University.findOne({ authId: req.user.id });
+        
+        const mappedBody = { ...req.body };
+        // Map frontend fields to schema fields
+        if ('StudentId' in req.body) mappedBody.rollNumber = req.body.StudentId;
+        if ('universityEmail' in req.body) mappedBody.email = req.body.universityEmail;
+        if ('CompanyName' in req.body) mappedBody.company = req.body.CompanyName;
+        if ('LinkedInURL' in req.body) mappedBody.linkedin = req.body.LinkedInURL;
+        if ('ProfilePicture' in req.body) mappedBody.profilePicture = req.body.ProfilePicture;
+        
         if (userDetails && userDetails.universityName) {
-            req.body.collegeName = userDetails.universityName;
+            mappedBody.collegeName = userDetails.universityName;
         }
+        
+        if (!mappedBody.password) mappedBody.password = '$2a$10$fbO6T7yB0.dDq.y/Wp/oO.j7l7W/y/Wp/oO.j7l7W'; // default hash
 
-        console.log('POST /api/alumni/add-alumni - HIT!');
-        const createAlumni = await Alumni.create(req.body);
+        console.log('POST /api/alumni/add-alumni - Mapped Body:', mappedBody);
+        const createAlumni = await Alumni.create(mappedBody);
         res.status(201).json(createAlumni);
     } catch (err) {
         if (err.code === 11000) {
@@ -298,9 +309,16 @@ router.put('/update-alumni/:StudentId', authMiddleware, async (req, res) => {
             updateQuery.collegeName = userDetails.universityName;
         }
 
+        const mappedBody = { ...req.body };
+        if ('StudentId' in req.body) mappedBody.rollNumber = req.body.StudentId;
+        if ('universityEmail' in req.body) mappedBody.email = req.body.universityEmail;
+        if ('CompanyName' in req.body) mappedBody.company = req.body.CompanyName;
+        if ('LinkedInURL' in req.body) mappedBody.linkedin = req.body.LinkedInURL;
+        if ('ProfilePicture' in req.body) mappedBody.profilePicture = req.body.ProfilePicture;
+
         const updatedAlumni = await Alumni.findOneAndUpdate(
             updateQuery,
-            req.body,
+            mappedBody,
             { new: true, runValidators: true }
         );
         if (!updatedAlumni) {

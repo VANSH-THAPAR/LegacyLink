@@ -301,8 +301,14 @@ const ManageStudent = () => {
                                                 <tr key={student._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewingStudent(student)}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
-                                                            <div className="flex-shrink-0 h-10 w-10">
-                                                                <img className="h-10 w-10 rounded-full object-cover" src={student.ProfilePicture || `https://i.pravatar.cc/150?u=${student.StudentId}`} alt="Profile" />
+                                                            <div className="flex-shrink-0 h-10 w-10 bg-slate-200 rounded-full flex items-center justify-center overflow-hidden">
+                                                                {student.profilePicture || student.ProfilePicture ? (
+                                                                    <img className="h-full w-full object-cover" src={student.profilePicture || student.ProfilePicture} alt="Profile" />
+                                                                ) : (
+                                                                    <svg className="h-6 w-6 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                                                                        <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                                                                    </svg>
+                                                                )}
                                                             </div>
                                                             <div className="ml-4">
                                                                 <div className="text-sm font-medium text-slate-900">{student.name}</div>

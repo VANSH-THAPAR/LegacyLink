@@ -24,11 +24,19 @@ const StudentDetailModal = ({ isOpen, onClose, student }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* --- Left Column: Photo & Key Info --- */}
                         <div className="lg:col-span-1 flex flex-col items-center text-center">
-                            <img
-                                src={student.ProfilePicture || `https://i.pravatar.cc/150?u=${student.StudentId}`}
-                                alt="Profile"
-                                className="w-48 h-48 rounded-full object-cover border-4 border-white shadow-lg mb-4"
-                            />
+                            <div className="w-48 h-48 rounded-full border-4 border-white shadow-lg mb-4 flex items-center justify-center overflow-hidden bg-slate-200">
+                                {student.profilePicture || student.ProfilePicture ? (
+                                    <img
+                                        src={student.profilePicture || student.ProfilePicture}
+                                        alt="Profile"
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <svg className="w-24 h-24 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                )}
+                            </div>
                             <h3 className="text-2xl font-bold text-slate-900">{student.name}</h3>
                             <p className="text-md text-slate-600">{student.degreeProgram}</p>
                             <p className="text-sm text-slate-500">Batch of {student.batchYear}</p>

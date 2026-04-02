@@ -23,10 +23,31 @@ const AlumniFormModal = ({ isOpen, onClose, onSubmit, initialData }) => {
     useEffect(() => {
         // When initialData (for editing) changes, update the form
         if (initialData) {
-            setFormData(initialData);
+            setFormData({
+                ...initialData,
+                StudentId: initialData.rollNumber || initialData.StudentId || '',
+                universityEmail: initialData.email || initialData.universityEmail || '',
+                personalEmail: initialData.personalEmail || '',
+                CompanyName: initialData.company || initialData.CompanyName || '',
+                LinkedInURL: initialData.linkedin || initialData.LinkedInURL || '',
+                ProfilePicture: initialData.profilePicture || initialData.ProfilePicture || '',
+                name: initialData.name || '',
+                gender: initialData.gender || '',
+                dob: initialData.dob ? new Date(initialData.dob).toISOString().split('T')[0] : '',
+                nationality: initialData.nationality || '',
+                batchYear: initialData.batchYear || '',
+                degreeProgram: initialData.degreeProgram || '',
+                profession: (initialData.profession || initialData.work) || '',
+                contactNumber: initialData.contactNumber || initialData.phone || ''
+            });
         } else {
             // Clear form for 'Add'
-            setFormData({});
+            setFormData({
+                name: '', StudentId: '', universityEmail: '', personalEmail: '',
+                contactNumber: '', ProfilePicture: '', batchYear: '',
+                degreeProgram: '', gender: '', dob: '', nationality: '',
+                profession: '', CompanyName: '', LinkedInURL: ''
+            });
         }
     }, [initialData]);
 
