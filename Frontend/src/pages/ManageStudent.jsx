@@ -42,21 +42,21 @@ const ManageStudent = () => {
     const fileInputRef = useRef(null);
 
     // --- Data Fetching ---
+    const fetchFilterMetadata = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/students/metadata`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Could not load filter options.');
+            const data = await response.json();
+            setFilterOptions(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     useEffect(() => {
-        const fetchFilterMetadata = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                // IMPORTANT: Make sure this backend endpoint exists
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/students/student-metadata`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Could not load filter options.');
-                const data = await response.json();
-                setFilterOptions(data);
-            } catch (err) {
-                console.error(err);
-            }
-        };
         fetchFilterMetadata();
     }, []);
 

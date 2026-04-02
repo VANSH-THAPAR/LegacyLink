@@ -59,6 +59,8 @@ const mapExcelKeysToSchema = (record) => {
         degreeprogram: 'degreeProgram',
         degree_program: 'degreeProgram',
         course: 'degreeProgram',
+        department: 'degreeProgram',
+        branch: 'degreeProgram',
         location: 'location',
         campus: 'location',
         position: 'position',
@@ -88,7 +90,12 @@ const mapExcelKeysToSchema = (record) => {
 
         const newKey = schemaKeyMap[lowerCaseKey] || schemaKeyMap[strippedKey];
         if (newKey) {
-            newRecord[newKey] = record[key];
+            let val = record[key];
+            if (typeof val === 'string' && (val.trim().toLowerCase() === 'na' || val.trim().toLowerCase() === 'n/a' || val.trim().toLowerCase() === 'none')) {
+                // Skip adding placeholder emails/values that might cause duplicate key errors
+                continue;
+            }
+            newRecord[newKey] = val;
         }
     }
     
@@ -136,8 +143,8 @@ router.get('/get-alumni', authMiddleware, async (req, res) => {
         if (req.query.name) query.name = { $regex: new RegExp(req.query.name, 'i') };
         if (req.query.StudentId) query.rollNumber = { $regex: new RegExp(req.query.StudentId, 'i') }; // Partial match for ID
         if (req.query.batchYear) query.batchYear = parseInt(req.query.batchYear);
-        if (req.query.degreeProgram) query.degreeProgram = req.query.degreeProgram;
-        if (req.query.gender) query.gender = req.query.gender;
+        if (req.query.degreeProgram) query.degreeProgram = { $regex: new RegExp(req.query.degreeProgram, 'i') };
+        if (req.query.gender) query.gender = { $regex: new RegExp(req.query.gender, 'i') };
         if (req.query.profession) query.profession = { $regex: new RegExp(req.query.profession, 'i') };
         if (req.query.nationality) query.nationality = { $regex: new RegExp(req.query.nationality, 'i') };
 
@@ -305,6 +312,14 @@ router.post('/upload', authMiddleware, upload.single('alumniFile'), async (req, 
         });
 
     } catch (err) {
+        if (err.name === 'MongoBulkWriteError' || err.code === 11000) {
+            const insertedCount = err.result?.upsertedCount || 0;
+            const updatedCount = err.result?.modifiedCount || 0;
+            const errorCount = err.writeErrors ? err.writeErrors.length : 0;
+            return res.status(207).json({ 
+                message: `Partial success: Added ${insertedCount}, Updated ${updatedCount}. However, ${errorCount} duplicates/conflicts were found and skipped.` 
+            });
+        }
         if (err.name === 'ValidationError') {
             const firstErrorField = Object.keys(err.errors)[0];
             const errorMessage = err.errors[firstErrorField].message;

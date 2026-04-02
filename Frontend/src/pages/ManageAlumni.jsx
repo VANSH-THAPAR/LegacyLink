@@ -32,23 +32,26 @@ const ManageAlumni = () => {
     const [filterOptions, setFilterOptions] = useState({ batchYears: [], degreePrograms: [], genders: [], professions: [] });
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 50;
     const fileInputRef = useRef(null);
+
+    const fetchFilterMetadata = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const response = await fetch(`${API_URL}/alumni/metadata`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Could not load filter options.');
+            const data = await response.json();
+            setFilterOptions(data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     // --- Data Fetching ---
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const fetchFilterMetadata = async () => {
-            try {
-                const response = await fetch(`${API_URL}/alumni/metadata`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Could not load filter options.');
-                const data = await response.json();
-                setFilterOptions(data);
-            } catch (err) {
-                console.error(err);
-            }
-        };
         fetchFilterMetadata();
     }, []);
 
@@ -65,6 +68,7 @@ const ManageAlumni = () => {
             if (!response.ok) throw new Error('Network response was not ok.');
             const data = await response.json();
             setAlumni(data);
+            setCurrentPage(1); // Reset page on new search
         } catch (err) {
             setError(err.message);
         } finally {
@@ -104,6 +108,7 @@ const ManageAlumni = () => {
             if (!response.ok) throw new Error(result.message || 'Operation failed');
             setIsModalOpen(false);
             alert(`Alumni successfully ${isEditing ? 'updated' : 'added'}!`);
+            await fetchFilterMetadata();
             handleSearch();
         } catch (err) {
             console.error(err);
@@ -123,6 +128,7 @@ const ManageAlumni = () => {
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to delete record.');
                 alert('Alumni record deleted.');
+                await fetchFilterMetadata();
                 handleSearch();
             } catch (err) {
                 alert(`Error: ${err.message}`);
@@ -153,11 +159,12 @@ const ManageAlumni = () => {
             setUploadProgress(100);
 
             if (!response.ok) throw new Error(result.message || 'File upload failed');
-            setTimeout(() => {
+            setTimeout(async () => {
                 alert(result.message);
                 setIsUploadModalOpen(false);
                 clearFilters();
                 setUploadProgress(0);
+                await fetchFilterMetadata();
             }, 500);
         } catch (err) {
             console.error(err);
@@ -185,6 +192,13 @@ const ManageAlumni = () => {
     const alumniByGender = useMemo(() => processDataForChart('gender'), [alumni]);
     const top5Professions = useMemo(() => processDataForChart('profession').sort((a,b) => b.value - a.value).slice(0, 5), [alumni]);
     const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
+
+    // --- Pagination Logic ---
+    const totalPages = Math.ceil(alumni.length / itemsPerPage);
+    const paginatedAlumni = alumni.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const handleNextPage = () => setCurrentPage((prev) => (prev < totalPages ? prev + 1 : prev));
+    const handlePrevPage = () => setCurrentPage((prev) => (prev > 1 ? prev - 1 : prev));
 
     // --- Main Render ---
     return (
@@ -286,10 +300,10 @@ const ManageAlumni = () => {
                     {!loading && !error && hasSearched && alumni.length > 0 && (
                         <>
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm"><h3 className="text-lg font-semibold text-slate-800 mb-4">Alumni by Batch Year</h3><ResponsiveContainer width="100%" height={350}><BarChart data={alumniByYear} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" fill="#8884d8" name="Alumni" /></BarChart></ResponsiveContainer></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm"><h3 className="text-lg font-semibold text-slate-800 mb-4">Top 5 Professions</h3><ResponsiveContainer width="100%" height={350}><BarChart data={top5Professions} layout="vertical" margin={{ top: 5, right: 30, left: 60, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" allowDecimals={false} /><YAxis type="category" dataKey="name" width={100} tick={{fontSize: 12}} /><Tooltip /><Bar dataKey="value" fill="#82ca9d" name="Alumni" /></BarChart></ResponsiveContainer></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm"><h3 className="text-lg font-semibold text-slate-800 mb-4">Alumni by Degree Program</h3><ResponsiveContainer width="100%" height={350}><PieChart><Pie data={alumniByProgram} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={100} label>{alumniByProgram.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend layout="vertical" verticalAlign="middle" align="right" /></PieChart></ResponsiveContainer></div>
-                                <div className="bg-white p-6 rounded-2xl shadow-sm"><h3 className="text-lg font-semibold text-slate-800 mb-4">Alumni by Gender</h3><ResponsiveContainer width="100%" height={350}><PieChart><Pie data={alumniByGender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100}>{alumniByGender.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden flex flex-col"><h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">Alumni by Batch Year</h3><div className="flex-1 w-full min-h-[350px]"><ResponsiveContainer width="100%" height={350}><BarChart data={alumniByYear} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="value" fill="#8884d8" name="Alumni" /></BarChart></ResponsiveContainer></div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden flex flex-col"><h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">Top 5 Professions</h3><div className="flex-1 w-full min-h-[350px]"><ResponsiveContainer width="100%" height={350}><BarChart data={top5Professions} layout="vertical" margin={{ top: 5, right: 30, left: 60, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" /><XAxis type="number" allowDecimals={false} /><YAxis type="category" dataKey="name" width={100} tick={{fontSize: 12}} /><Tooltip /><Bar dataKey="value" fill="#82ca9d" name="Alumni" /></BarChart></ResponsiveContainer></div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden flex flex-col"><h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">Alumni by Degree Program</h3><div className="flex-1 w-full min-h-[350px]"><ResponsiveContainer width="100%" height={350}><PieChart><Pie data={alumniByProgram} dataKey="value" nameKey="name" cx="40%" cy="50%" outerRadius={100} label>{alumniByProgram.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend layout="vertical" verticalAlign="middle" align="right" /></PieChart></ResponsiveContainer></div></div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm overflow-hidden flex flex-col"><h3 className="text-lg font-semibold text-slate-800 mb-4 flex-shrink-0">Alumni by Gender</h3><div className="flex-1 w-full min-h-[350px]"><ResponsiveContainer width="100%" height={350}><PieChart><Pie data={alumniByGender} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100}>{alumniByGender.map((entry, index) => (<Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />))}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></div></div>
                             </div>
 
                             <div className="bg-white shadow-sm rounded-2xl overflow-hidden">
@@ -304,7 +318,7 @@ const ManageAlumni = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-slate-200">
-                                            {alumni.map((alum) => (
+                                            {paginatedAlumni.map((alum) => (
                                                 <tr key={alum._id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setViewingAlumnus(alum)}>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <div className="flex items-center">
@@ -339,6 +353,37 @@ const ManageAlumni = () => {
                                         </tbody>
                                     </table>
                                 </div>
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6">
+                                        <div className="flex flex-1 justify-between sm:hidden">
+                                            <button onClick={handlePrevPage} disabled={currentPage === 1} className="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Previous</button>
+                                            <button onClick={handleNextPage} disabled={currentPage === totalPages} className="relative ml-3 inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">Next</button>
+                                        </div>
+                                        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                                            <div>
+                                                <p className="text-sm text-slate-700">
+                                                    Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, alumni.length)}</span> of <span className="font-medium">{alumni.length}</span> results
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                                    <button onClick={handlePrevPage} disabled={currentPage === 1} className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50">
+                                                        <span className="sr-only">Previous</span>
+                                                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" /></svg>
+                                                    </button>
+                                                    <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-300">
+                                                        Page {currentPage} of {totalPages}
+                                                    </span>
+                                                    <button onClick={handleNextPage} disabled={currentPage === totalPages} className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50">
+                                                        <span className="sr-only">Next</span>
+                                                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" /></svg>
+                                                    </button>
+                                                </nav>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}

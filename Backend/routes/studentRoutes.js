@@ -56,10 +56,15 @@ router.get('/get-students', authMiddleware, async (req, res) => {
 
         for (const key in req.query) {
             if (Object.prototype.hasOwnProperty.call(req.query, key) && req.query[key]) {
+                const dbKey = key === 'batchYear' ? 'graduatingYear' : 
+                              key === 'degreeProgram' ? 'course' : 
+                              key === 'StudentId' ? 'rollNumber' : 
+                              key === 'universityEmail' ? 'email' : key;
+
                 if (stringSearchFields.includes(key)) {
-                    query[key] = { $regex: new RegExp(req.query[key], 'i') };
+                    query[dbKey] = { $regex: new RegExp(req.query[key], 'i') };
                 } else {
-                    query[key] = req.query[key];
+                    query[dbKey] = key === 'batchYear' ? parseInt(req.query[key]) : req.query[key];
                 }
             }
         }
@@ -82,8 +87,8 @@ router.get('/metadata', authMiddleware, async (req, res) => {
 
         // --- Simplified metadata ---
         const [batchYears, degreePrograms, genders] = await Promise.all([       
-            Student.distinct('batchYear', matchQuery),
-            Student.distinct('degreeProgram', matchQuery),
+            Student.distinct('graduatingYear', matchQuery),
+            Student.distinct('course', matchQuery),
             Student.distinct('gender', matchQuery)
         ]);
         res.status(200).json({
