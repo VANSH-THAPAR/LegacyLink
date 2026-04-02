@@ -30,6 +30,8 @@ const ManageAlumni = () => {
     const [viewingAlumnus, setViewingAlumnus] = useState(null);
     const [filters, setFilters] = useState({ name: '', StudentId: '', batchYear: '', degreeProgram: '', gender: '', profession: '', nationality: '' });
     const [filterOptions, setFilterOptions] = useState({ batchYears: [], degreePrograms: [], genders: [], professions: [] });
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const fileInputRef = useRef(null);
 
     // --- Data Fetching ---
@@ -128,26 +130,39 @@ const ManageAlumni = () => {
         }
     };
 
-    const handleFileUpload = async (event) => {
-        const file = event.target.files[0];
+    const handleFileUpload = async (file) => {
         if (!file) return;
         setLoading(true);
+        setUploadProgress(0);
         const formData = new FormData();
         formData.append('alumniFile', file);
         const token = localStorage.getItem('token');
         try {
+            // Simulated progress for better UX
+            const progressInterval = setInterval(() => {
+                setUploadProgress((prev) => (prev >= 90 ? prev : prev + 10));
+            }, 100);
+
             const response = await fetch(`${API_URL}/alumni/upload`, { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${token}` },
                 body: formData 
             });
             const result = await response.json();
+            clearInterval(progressInterval);
+            setUploadProgress(100);
+
             if (!response.ok) throw new Error(result.message || 'File upload failed');
-            alert(result.message);
-            clearFilters();
+            setTimeout(() => {
+                alert(result.message);
+                setIsUploadModalOpen(false);
+                clearFilters();
+                setUploadProgress(0);
+            }, 500);
         } catch (err) {
             console.error(err);
             alert(`Error: ${err.message}`);
+            setUploadProgress(0);
         } finally {
             setLoading(false);
         }
@@ -177,6 +192,49 @@ const ManageAlumni = () => {
             <AlumniFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleFormSubmit} initialData={editingAlumnus} />
             <AlumniDetailModal isOpen={!!viewingAlumnus} onClose={() => setViewingAlumnus(null)} alumnus={viewingAlumnus} />
             
+            {/* Upload Excel Modal */}
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all">
+                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-lg font-semibold text-slate-800">Upload Alumni Data</h3>
+                            <button onClick={() => setIsUploadModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="p-8">
+                            <div 
+                                className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition-colors cursor-pointer"
+                                onClick={() => fileInputRef.current?.click()}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    const file = e.dataTransfer.files[0];
+                                    if (file) handleFileUpload(file);
+                                }}
+                            >
+                                <svg className="mx-auto h-12 w-12 text-slate-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                                <p className="text-sm text-slate-600 mb-1"><span className="font-semibold text-indigo-600">Click to upload</span> or drag and drop</p>
+                                <p className="text-xs text-slate-500">.xlsx, .xls, .csv up to 10MB</p>
+                                <input type="file" ref={fileInputRef} onChange={(e) => handleFileUpload(e.target.files[0])} className="hidden" accept=".xlsx, .xls, .csv" />
+                            </div>
+
+                            {uploadProgress > 0 && (
+                                <div className="mt-6">
+                                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                                        <span>Uploading...</span>
+                                        <span>{uploadProgress}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                        <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-slate-100 min-h-screen font-sans">
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
@@ -185,11 +243,10 @@ const ManageAlumni = () => {
                             <p className="mt-2 text-lg text-slate-600">Analyze, filter, and manage all alumni records.</p>
                         </div>
                         <div className="mt-4 sm:mt-0 flex items-center space-x-2">
-                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx, .xls, .csv" />
-                            <button onClick={triggerFileInput} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700">
+                            <button onClick={() => setIsUploadModalOpen(true)} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-teal-600 hover:bg-teal-700 shadow-sm transition-all duration-200">
                                 <UploadIcon /> Upload Excel
                             </button>
-                            <button onClick={openAddModal} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                            <button onClick={openAddModal} className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 transition-all duration-200">
                                 <PlusIcon /> Add Alumni
                             </button>
                         </div>

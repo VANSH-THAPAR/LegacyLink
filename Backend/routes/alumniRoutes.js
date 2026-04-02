@@ -16,6 +16,7 @@ const mapExcelKeysToSchema = (record) => {
         studentid: 'rollNumber', 
         rollnumber: 'rollNumber',
         student_id: 'rollNumber',
+        'roll number': 'rollNumber',
         linkedinurl: 'linkedin',
         linkedin_url: 'linkedin',
         profilepicture: 'profilePicture',
@@ -23,15 +24,24 @@ const mapExcelKeysToSchema = (record) => {
         companyname: 'company', 
         company_name: 'company',
         company: 'company',
+        organization: 'company',
+        'organization / self employed - business / university': 'company',
         name: 'name',
         universityemail: 'email', 
         university_email: 'email',
         email: 'email',
-        // personalEmail maps to personalEmail field now
+        'email address (official)': 'email',
         personalemail: 'personalEmail', 
         personal_email: 'personalEmail',
+        'email address (personal)': 'personalEmail',
         contactnumber: 'contactNumber',
         contact_number: 'contactNumber',
+        'mobile number': 'contactNumber',
+        'mobile number (with country code)': 'contactNumber',
+        whatsappnumber: 'phone',
+        'whatsapp number': 'phone',
+        'whatsapp number (with country code)': 'phone',
+        phone: 'phone',
         fathername: 'fatherName',
         father_name: 'fatherName',
         mothername: 'motherName',
@@ -41,32 +51,51 @@ const mapExcelKeysToSchema = (record) => {
         role: 'role',
         dob: 'dob',
         dateofbirth: 'dob',
+        'date of birth': 'dob',
         profession: 'profession',
+        'current status': 'profession',
         batchyear: 'batchYear',
         batch_year: 'batchYear',
         degreeprogram: 'degreeProgram',
         degree_program: 'degreeProgram',
+        course: 'degreeProgram',
         location: 'location',
-        position: 'position'
+        campus: 'location',
+        position: 'position',
+        designation: 'position',
+        'designation / course (studies)': 'position'
     };
     
+    // Standardizer for degree programs
+    const standardizeDegree = (degree) => {
+        if (!degree) return degree;
+        const lower = degree.toLowerCase().trim();
+        if (lower.includes('cse') || lower.includes('computer science')) return 'B.E. Computer Science Engineering';
+        if (lower.includes('ece') || lower.includes('electronics')) return 'B.E. Electronics & Communication';
+        if (lower.includes('mech') || lower.includes('mechanical')) return 'B.E. Mechanical Engineering';
+        if (lower.includes('civil')) return 'B.E. Civil Engineering';
+        if (lower.includes('bca') || lower.includes('bachelor of computer application')) return 'BCA';
+        if (lower.includes('mca') || lower.includes('master of computer application')) return 'MCA';
+        if (lower.includes('mba') || lower.includes('master of business')) return 'MBA';
+        if (lower.includes('bba') || lower.includes('bachelor of business')) return 'BBA';
+        return degree.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    };
+
     const newRecord = {};
     for (const key in record) {
-        const lowerCaseKey = key.toLowerCase().replace(/ /g, ''); // Also remove spaces
-        // Also try replacing underscores for match if needed, but the map above handles some variants
-        // The robust way is to rely on the clean key
-        
-        const newKey = schemaKeyMap[lowerCaseKey];
+        const lowerCaseKey = key.toLowerCase().trim().replace(/\s+/g, ' '); // Keep spaces for exact matches of verbose headers
+        const strippedKey = lowerCaseKey.replace(/\s+/g, ''); // Stripped version for old keys
+
+        const newKey = schemaKeyMap[lowerCaseKey] || schemaKeyMap[strippedKey];
         if (newKey) {
             newRecord[newKey] = record[key];
         }
     }
     
-    // Explicit precedence: If universityEmail exists in record, ensure it sets 'email'
-    // The loop above uses the key text. keys 'universityEmail' and 'email' both map to 'email'.
-    // If Excel has both 'universityEmail' and 'personalEmail', 'universityEmail' -> 'email', 'personalEmail' -> 'personalEmail'.
-    // If Excel has 'universityEmail' and 'email' (header), both write to 'email'. Last one wins. 
-    // Usually Excel has 'University Email' OR 'Email'. The user image shows 'universityEmail'.
+    // Standardize specific fields
+    if (newRecord.degreeProgram) {
+        newRecord.degreeProgram = standardizeDegree(newRecord.degreeProgram);
+    }
     
     // Default values if missing
     if (!newRecord.role) {
@@ -227,18 +256,22 @@ router.post('/upload', authMiddleware, upload.single('alumniFile'), async (req, 
             return res.status(400).json({ message: "No valid alumni records found. Check your Excel headers." });
         }
         
-        console.log(`Attempting to insert ${validRecords.length} records. Sample:`, validRecords[0]);
-        const result = await Alumni.insertMany(validRecords, { ordered: false });
-        res.status(201).json({ message: `Successfully added ${result.length} new alumni.` });
+        console.log(`Attempting to upsert ${validRecords.length} records. Sample:`, validRecords[0]);
+        
+        const bulkOps = validRecords.map(record => ({
+            updateOne: {
+                filter: { rollNumber: record.rollNumber },
+                update: { $set: record },
+                upsert: true
+            }
+        }));
+
+        const result = await Alumni.bulkWrite(bulkOps, { ordered: false });
+        res.status(201).json({ 
+            message: `Successfully processed ${validRecords.length} records. Added: ${result.upsertedCount}, Updated: ${result.modifiedCount}.` 
+        });
 
     } catch (err) {
-        if (err.name === 'MongoBulkWriteError' && err.code === 11000) {
-            const insertedCount = err.result ? err.result.nInserted : 0;
-            const errorCount = err.writeErrors ? err.writeErrors.length : 0;
-            return res.status(207).json({ 
-                message: `Partial success. Added ${insertedCount} new alumni, but ${errorCount} duplicates were found and ignored.`
-            });
-        }
         if (err.name === 'ValidationError') {
             const firstErrorField = Object.keys(err.errors)[0];
             const errorMessage = err.errors[firstErrorField].message;
