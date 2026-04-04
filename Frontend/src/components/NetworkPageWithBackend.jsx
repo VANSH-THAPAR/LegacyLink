@@ -14,8 +14,20 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [pendingRequests, setPendingRequests] = useState({ connectionRequests: [], followerRequests: [] });
-    const [activeTab, setActiveTab] = useState('discover'); // 'discover', 'requests', 'connections'
+    const [activeTab, setActiveTab] = useState(() => {
+        const storedTab = localStorage.getItem('networkInitialTab');
+        if (storedTab) {
+            localStorage.removeItem('networkInitialTab');
+            return storedTab;
+        }
+        return 'discover';
+    }); // 'discover', 'requests', 'connections'
     const [myConnections, setMyConnections] = useState([]);
+
+    useEffect(() => {
+        // Initial fetch of connections to display the count on the tab
+        fetchMyConnections();
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'discover') {
@@ -23,7 +35,7 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
         } else if (activeTab === 'requests') {
             fetchPendingRequests();
         } else if (activeTab === 'connections') {
-            fetchMyConnections();
+            fetchMyConnections(); // Also refetch when clicking the tab to get latest
         }
     }, [searchQuery, filters, activeTab]);
 
