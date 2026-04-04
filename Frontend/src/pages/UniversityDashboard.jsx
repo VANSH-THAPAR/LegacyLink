@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import UniversityEventApproval from '../components/UniversityEventApproval';
 
 // --- Icon Components for a clean, professional look ---
 
@@ -252,6 +253,11 @@ const UniversityDashboard = () => {
                             View All Requests
                         </button>
                     </div>
+                </div>
+
+                {/* --- Event Requests Section --- */}
+                <div className="mt-10">
+                    <UniversityEventApproval />
                 </div>
 
                 {/* --- Additional Analytics Section --- */}

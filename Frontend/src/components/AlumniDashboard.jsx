@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    LayoutDashboard, MessageSquare, Users, Calendar, User, Search, Bell, Award, Briefcase, Send, Check, X, Star, MapPin, Building, Link, Edit3, LogOut, Settings, MoreVertical, Paperclip, Smile, GraduationCap, ChevronDown, Gift, HeartHandshake, CheckCircle2 
+    LayoutDashboard, MessageSquare, Users, Calendar, User, Search, Bell, Award, Briefcase, Send, Check, X, Star, MapPin, Building, Link, Edit3, LogOut, Settings, MoreVertical, Paperclip, Smile, GraduationCap, ChevronDown, Gift, HeartHandshake, CheckCircle2, Plus 
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import EditProfileButton from './EditProfileButton';
 import ChatSystem from './ChatSystem';
 import NetworkPageWithBackend from './NetworkPageWithBackend';
 import EventsPageWithBackend from './EventsPageWithBackend';
-import OpportunitiesPage from './OpportunitiesPage'
+import OpportunitiesPage from './OpportunitiesPage';
+import EventCreationForm from './EventCreationForm';
 
 // --- ENHANCED HARDCODED DATA ---
 
@@ -962,6 +963,7 @@ const DonationModal = ({ isOpen, onClose, alumni }) => {
 const AlumniDashboard = ({ user, handleLogout, setUser }) => {
     const [activePage, setActivePage] = useState('Dashboard');
     const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+    const [isEventCreationModalOpen, setIsEventCreationModalOpen] = useState(false);
 
     const renderPage = () => {
         switch (activePage) {
@@ -987,6 +989,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
                      <SidebarLink icon={Briefcase} text="Opportunities" active={activePage === 'Opportunities'} onClick={() => setActivePage('Opportunities')} />   
                     <SidebarLink icon={Users} text="Network" active={activePage === 'Network'} onClick={() => setActivePage('Network')} />
                     <SidebarLink icon={Calendar} text="Events" active={activePage === 'Events'} onClick={() => setActivePage('Events')} />
+                    <SidebarLink icon={Plus} text="Create Event" onClick={() => setIsEventCreationModalOpen(true)} />
                     <SidebarLink icon={Gift} text="Giving Back" onClick={() => setIsDonationModalOpen(true)} />
                     <SidebarLink icon={User} text="Profile" active={activePage === 'Profile'} onClick={() => setActivePage('Profile')} />
                 </nav>
@@ -1008,28 +1011,37 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
                 </div>
             </aside>
 
-            <main className="flex-1 p-8 overflow-y-auto">
-                 <Header alumni={user} setActivePage={setActivePage} handleLogout={handleLogout} />
-                 <div className="mt-8">
-                     <AnimatePresence mode="wait">
-                         <motion.div
-                             key={activePage}
-                             initial={{ opacity: 0, y: 10 }}
-                             animate={{ opacity: 1, y: 0 }}
-                             exit={{ opacity: 0, y: -10 }}
-                             transition={{ duration: 0.2 }}
-                         >
-                            {renderPage()}
-                         </motion.div>
-                     </AnimatePresence>
-                 </div>
+            <main className="flex-1 flex flex-col">
+                <div className="p-8">
+                    <Header alumni={user} setActivePage={setActivePage} handleLogout={handleLogout} />
+                    <div className="mt-8">
+                        {renderPage()}
+                    </div>
+                </div>
             </main>
 
-            <DonationModal 
-                isOpen={isDonationModalOpen} 
-                onClose={() => setIsDonationModalOpen(false)}
-                alumni={user}
-            />
+            {/* Event Creation Modal */}
+            <AnimatePresence>
+                {isEventCreationModalOpen && (
+                    <EventCreationForm
+                        onClose={() => setIsEventCreationModalOpen(false)}
+                        onSuccess={() => {
+                            setIsEventCreationModalOpen(false);
+                            setActivePage('Events');
+                        }}
+                    />
+                )}
+            </AnimatePresence>
+            {/* Donation Modal */}
+            <AnimatePresence>
+                {isDonationModalOpen && (
+                    <DonationModal 
+                        isOpen={isDonationModalOpen} 
+                        onClose={() => setIsDonationModalOpen(false)}
+                        alumni={user}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

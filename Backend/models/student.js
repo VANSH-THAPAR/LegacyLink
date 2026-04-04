@@ -117,4 +117,7 @@ studentSchema.index({ rollNumber: 1 });
 studentSchema.index({ collegeName: 1 });
 studentSchema.index({ graduatingYear: 1 });
 
-module.exports = mongoose.model('Student', studentSchema);
+// Prevent model overwrite
+const Student = mongoose.models.Student || mongoose.model('Student', studentSchema);
+
+module.exports = Student;

@@ -33,7 +33,7 @@ const EventsPageWithBackend = ({ user }) => {
             
             if (response.ok) {
                 const data = await response.json();
-                setEvents(data);
+                setEvents(data.events || []);
             }
         } catch (error) {
             console.error('Error fetching events:', error);
