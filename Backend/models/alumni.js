@@ -162,4 +162,7 @@ alumniSchema.index({ collegeName: 1 });
 alumniSchema.index({ batchYear: 1 });
 alumniSchema.index({ industry: 1 });
 
-module.exports = mongoose.model('Alumni', alumniSchema);
+// Prevent model overwrite
+const Alumni = mongoose.models.Alumni || mongoose.model('Alumni', alumniSchema);
+
+module.exports = Alumni;

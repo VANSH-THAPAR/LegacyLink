@@ -17,6 +17,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import ChatSystem from './ChatSystem';
+import StudentEventsDisplay from './StudentEventsDisplay';
 
 // --- Mock Data (Replace with API calls) ---
 const mockMentors = [
@@ -633,7 +634,7 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
           />
         );
       case "Search Events":
-        return <SearchEventsPage onEventClick={handleEventClick} />;
+        return <StudentEventsDisplay />;
       case "Messages":
         return <ChatSystem user={user} />;
       case "Profile":
