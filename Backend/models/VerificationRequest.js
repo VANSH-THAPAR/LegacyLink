@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const verificationRequestSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        // Dynamic reference not strictly needed for just fetching requests unless populating
+        required: false, // Make false to support Registration requests before user exists
         refPath: 'userModel' 
     },
     userModel: {
@@ -28,6 +27,18 @@ const verificationRequestSchema = new mongoose.Schema({
         type: String,
         enum: ['pending', 'approved', 'rejected'],
         default: 'pending'
+    },
+    isRegistration: {
+        type: Boolean,
+        default: false
+    },
+    registrationData: {
+        type: Object,
+        default: {}
+    },
+    idProofUrl: {
+        type: String,
+        default: ''
     }
 }, { timestamps: true });
 
