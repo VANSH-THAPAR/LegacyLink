@@ -13,10 +13,109 @@ const NetworkPageWithBackend = ({ user }) => {
         skills: ''
     });
     const [isLoading, setIsLoading] = useState(true);
+    const [pendingRequests, setPendingRequests] = useState({ connectionRequests: [], followerRequests: [] });
+    const [activeTab, setActiveTab] = useState('discover'); // 'discover', 'requests', 'connections'
+    const [myConnections, setMyConnections] = useState([]);
 
     useEffect(() => {
-        fetchAlumni();
-    }, [searchQuery, filters]);
+        if (activeTab === 'discover') {
+            fetchAlumni();
+        } else if (activeTab === 'requests') {
+            fetchPendingRequests();
+        } else if (activeTab === 'connections') {
+            fetchMyConnections();
+        }
+    }, [searchQuery, filters, activeTab]);
+
+    const fetchPendingRequests = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/alumni/pending-requests`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setPendingRequests(data);
+            }
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+        }
+    };
+
+    const fetchMyConnections = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/alumni/my-connections`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setMyConnections(data.connections);
+            }
+        } catch (error) {
+            console.error('Error fetching connections:', error);
+        }
+    };
+
+    const handleAcceptRequest = async (requesterId, type) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/alumni/connect/accept`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ requesterId, type })
+            });
+
+            if (response.ok) {
+                if (type === 'alumni') {
+                    setPendingRequests(prev => ({
+                        ...prev,
+                        connectionRequests: prev.connectionRequests.filter(req => req._id !== requesterId)
+                    }));
+                } else {
+                    setPendingRequests(prev => ({
+                        ...prev,
+                        followerRequests: prev.followerRequests.filter(req => req._id !== requesterId)
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error('Error accepting request:', error);
+        }
+    };
+
+    const handleRejectRequest = async (requesterId, type) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/alumni/connect/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ requesterId, type })
+            });
+
+            if (response.ok) {
+                if (type === 'alumni') {
+                    setPendingRequests(prev => ({
+                        ...prev,
+                        connectionRequests: prev.connectionRequests.filter(req => req._id !== requesterId)
+                    }));
+                } else {
+                    setPendingRequests(prev => ({
+                        ...prev,
+                        followerRequests: prev.followerRequests.filter(req => req._id !== requesterId)
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error('Error rejecting request:', error);
+        }
+    };
 
     const fetchAlumni = async () => {
         try {
@@ -89,13 +188,46 @@ const NetworkPageWithBackend = ({ user }) => {
 
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="mb-8">
-                <h2 className="text-3xl font-bold text-slate-800">Alumni Network</h2>
-                <p className="text-slate-500 mt-1">Connect with fellow alumni and expand your professional circle.</p>
+            <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold text-slate-800">Alumni Network</h2>
+                    <p className="text-slate-500 mt-1">Connect with fellow alumni and expand your professional circle.</p>
+                </div>
+                <div className="mt-4 md:mt-0 flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                    <button 
+                        onClick={() => setActiveTab('discover')}
+                        className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'discover' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        Find Alumni
+                    </button>
+                    {user?.role === 'alumni' && (
+                        <>
+                            <button 
+                                onClick={() => setActiveTab('connections')}
+                                className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'connections' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                My Connections
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('requests')}
+                                className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors relative ${activeTab === 'requests' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            >
+                                Requests
+                                {(pendingRequests?.connectionRequests?.length > 0 || pendingRequests?.followerRequests?.length > 0) && (
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
+                                        {(pendingRequests?.connectionRequests?.length || 0) + (pendingRequests?.followerRequests?.length || 0)}
+                                    </span>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* Search and Filters */}
-            <div className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            {activeTab === 'discover' && (
+                <>
+                    {/* Search and Filters */}
+                    <div className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
@@ -154,7 +286,7 @@ const NetworkPageWithBackend = ({ user }) => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 * i }}
-                                className="bg-white p-6 rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all"
+                                className="bg-white p-6 rounded-2xl h-full border border-slate-200 text-center flex flex-col items-center shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all"
                             >
                                 <img 
                                     src={alumnus.profilePicture || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=96&h=96&fit=crop&crop=face'} 
@@ -196,7 +328,7 @@ const NetworkPageWithBackend = ({ user }) => {
                                     </div>
                                 )}
 
-                                <div className="mt-4 flex gap-3 w-full">
+                                <div className="mt-auto pt-4 flex gap-3 w-full">
                                     <button 
                                         onClick={() => handleConnect(alumnus._id)}
                                         disabled={alumnus.connectionSent}
@@ -207,7 +339,7 @@ const NetworkPageWithBackend = ({ user }) => {
                                         }`}
                                     >
                                         <Users size={14} className="inline mr-1"/>
-                                        {alumnus.connectionSent ? 'Sent' : 'Connect'}
+                                        {alumnus.connectionSent ? 'Sent' : (user?.role === 'student' ? 'Follow' : 'Connect')}
                                     </button>
                                     <button 
                                         onClick={() => startConversation(alumnus._id)}
@@ -219,6 +351,91 @@ const NetworkPageWithBackend = ({ user }) => {
                                 </div>
                             </motion.div>
                         ))
+                    )}
+                </div>
+            )}
+            </>
+            )}
+
+            {activeTab === 'requests' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Connection Requests (Alumni)</h3>
+                        {pendingRequests?.connectionRequests?.length === 0 ? (
+                            <p className="text-slate-500 py-4">No pending connection requests.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {pendingRequests?.connectionRequests?.map(req => (
+                                    <div key={req._id} className="bg-white p-4 justify-between items-center rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <img src={req.profilePicture || 'https://placehold.co/100'} alt={req.name} className="w-12 h-12 rounded-full object-cover"/>
+                                            <div>
+                                                <p className="font-bold text-slate-800">{req.name}</p>
+                                                <p className="text-xs text-slate-500">{req.position} at {req.company}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 w-full sm:w-auto">
+                                            <button onClick={() => handleAcceptRequest(req._id, 'alumni')} className="flex-1 sm:flex-none uppercase text-xs font-bold px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded">Accept</button>
+                                            <button onClick={() => handleRejectRequest(req._id, 'alumni')} className="flex-1 sm:flex-none uppercase text-xs font-bold px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded">Decline</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-4 border-b pb-2">Follower Requests (Students)</h3>
+                        {pendingRequests?.followerRequests?.length === 0 ? (
+                            <p className="text-slate-500 py-4">No pending follower requests.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {pendingRequests?.followerRequests?.map(req => (
+                                    <div key={req._id} className="bg-white p-4 justify-between items-center rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <img src={req.profilePicture || 'https://placehold.co/100'} alt={req.name} className="w-12 h-12 rounded-full object-cover"/>
+                                            <div>
+                                                <p className="font-bold text-slate-800">{req.name}</p>
+                                                <p className="text-xs text-slate-500">{req.course} | {req.collegeName}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 w-full sm:w-auto">
+                                            <button onClick={() => handleAcceptRequest(req._id, 'student')} className="flex-1 sm:flex-none uppercase text-xs font-bold px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded">Accept</button>
+                                            <button onClick={() => handleRejectRequest(req._id, 'student')} className="flex-1 sm:flex-none uppercase text-xs font-bold px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded">Decline</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'connections' && (
+                <div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-6">My Connections ({myConnections.length})</h3>
+                    {myConnections.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500 bg-slate-50 rounded-xl border border-slate-100">
+                            You don't have any connections yet. Go to Discover to find alumni!
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {myConnections.map((conn) => (
+                                <div key={conn._id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+                                    <img src={conn.profilePicture || 'https://placehold.co/100'} alt={conn.name} className="w-14 h-14 rounded-full object-cover border-2 border-slate-100" />
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="font-bold text-slate-800 truncate">{conn.name}</h4>
+                                        <p className="text-xs text-slate-500 truncate">{conn.position}</p>
+                                        <p className="text-xs text-slate-500 truncate">{conn.company}</p>
+                                        <button 
+                                            onClick={() => startConversation(conn._id)}
+                                            className="mt-2 text-xs font-medium text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
+                                        >
+                                            <MessageSquare size={12}/> Message
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     )}
                 </div>
             )}

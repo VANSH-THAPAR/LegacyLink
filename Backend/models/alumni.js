@@ -149,7 +149,13 @@ const alumniSchema = new mongoose.Schema({
     engagementScore: {
         type: Number,
         default: 0
-    }
+    },
+    
+    // Connections & Followers
+    connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' }],
+    connectionRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' }],
+    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
+    followerRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }]
 }, {
     timestamps: true
 });

@@ -26,7 +26,9 @@ router.get('/search', authMiddleware, async (req, res) => {
         if (graduationYear) {
             query.graduatingYear = parseInt(graduationYear);
         }
-        
+                if (req.user.role === 'alumni') {
+            query.authId = { $ne: req.user.id };
+        }
         const alumni = await Alumni.find(query)
             .select('-password')
             .limit(parseInt(limit))

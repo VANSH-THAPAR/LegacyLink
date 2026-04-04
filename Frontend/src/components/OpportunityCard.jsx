@@ -30,7 +30,7 @@ const OpportunityCard = ({ opportunity, index, userRole, onBookmark, onViewDetai
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
             whileHover={{ y: -8, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}
-            className="bg-white rounded-2xl p-6 border border-slate-200 hover:border-cyan-300 transition-all cursor-pointer group"
+            className="bg-white rounded-2xl h-full flex flex-col p-6 border border-slate-200 hover:border-cyan-300 transition-all cursor-pointer group"
             onClick={() => onViewDetails(opportunity)}
         >
             {/* Header */}
