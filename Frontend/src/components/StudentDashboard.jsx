@@ -629,20 +629,20 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
     switch (activePage) {
       case "Find Mentors":
         return (
-          <NetworkPageWithBackend user={user} />
-        );
-      case "Search Events":
-        return <StudentEventsDisplay />;
-      case "Messages":
-        return <ChatSystem user={user} />;
-      case "Profile":
-        return <ProfilePage student={user} setUser={setUser} />;
-      case "Support":
-        return <SupportPage user={user} />;
-      default:
-        return (
-          <NetworkPageWithBackend user={user} />
-        );
+            <NetworkPageWithBackend user={user} setActivePage={setActivePage} />
+          );
+        case "Search Events":
+          return <StudentEventsDisplay />;
+        case "Messages":
+          return <ChatSystem user={user} />;
+        case "Profile":
+          return <ProfilePage student={user} setUser={setUser} />;
+        case "Support":
+          return <SupportPage user={user} />;
+        default:
+          return (
+            <NetworkPageWithBackend user={user} setActivePage={setActivePage} />
+          );
     }
   };
 

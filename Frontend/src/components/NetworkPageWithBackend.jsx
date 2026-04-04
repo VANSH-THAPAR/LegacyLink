@@ -4,7 +4,7 @@ import { Search, MapPin, Building, Users, MessageSquare } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const NetworkPageWithBackend = ({ user }) => {
+const NetworkPageWithBackend = ({ user, setActivePage }) => {
     const [alumni, setAlumni] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({
@@ -165,7 +165,7 @@ const NetworkPageWithBackend = ({ user }) => {
         }
     };
 
-    const startConversation = async (alumniId) => {
+    const startConversation = async (userId, role) => {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`${API_URL}/messages/start-conversation`, {
@@ -174,12 +174,18 @@ const NetworkPageWithBackend = ({ user }) => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ participantId: alumniId })
+                body: JSON.stringify({ userId, userRole: role || 'alumni' })
             });
 
             if (response.ok) {
-                // Could redirect to messages page or show success message
-                alert('Conversation started! Check your messages.');
+                if (setActivePage) {
+                    setActivePage('Messages');
+                } else {
+                    alert('Conversation started! Check your messages.');
+                }
+            } else {
+                const data = await response.json();
+                alert(data.msg || 'Cannot start conversation');
             }
         } catch (error) {
             console.error('Error starting conversation:', error);
@@ -194,32 +200,30 @@ const NetworkPageWithBackend = ({ user }) => {
                     <p className="text-slate-500 mt-1">Connect with fellow alumni and expand your professional circle.</p>
                 </div>
                 <div className="mt-4 md:mt-0 flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                    <button 
+                    <button
                         onClick={() => setActiveTab('discover')}
                         className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'discover' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                     >
                         Find Alumni
                     </button>
+                    <button
+                        onClick={() => setActiveTab('connections')}
+                        className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'connections' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        My Connections ({myConnections.length || 0})
+                    </button>
                     {user?.role === 'alumni' && (
-                        <>
-                            <button 
-                                onClick={() => setActiveTab('connections')}
-                                className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors ${activeTab === 'connections' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                            >
-                                My Connections
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('requests')}
-                                className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors relative ${activeTab === 'requests' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                            >
-                                Requests
+                        <button
+                            onClick={() => setActiveTab('requests')}
+                            className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors relative ${activeTab === 'requests' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                            Requests
                                 {(pendingRequests?.connectionRequests?.length > 0 || pendingRequests?.followerRequests?.length > 0) && (
                                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm">
                                         {(pendingRequests?.connectionRequests?.length || 0) + (pendingRequests?.followerRequests?.length || 0)}
                                     </span>
                                 )}
-                            </button>
-                        </>
+                        </button>
                     )}
                 </div>
             </div>
@@ -342,7 +346,7 @@ const NetworkPageWithBackend = ({ user }) => {
                                         {alumnus.connectionSent ? 'Sent' : (user?.role === 'student' ? 'Follow' : 'Connect')}
                                     </button>
                                     <button 
-                                        onClick={() => startConversation(alumnus._id)}
+                                          onClick={() => startConversation(alumnus.authId, alumnus.role || 'alumni')}
                                         className="flex-1 bg-slate-100 text-slate-700 font-semibold px-4 py-2 rounded-full text-sm hover:bg-slate-200 transition-transform hover:scale-105"
                                     >
                                         <MessageSquare size={14} className="inline mr-1"/>
@@ -427,7 +431,7 @@ const NetworkPageWithBackend = ({ user }) => {
                                         <p className="text-xs text-slate-500 truncate">{conn.position}</p>
                                         <p className="text-xs text-slate-500 truncate">{conn.company}</p>
                                         <button 
-                                            onClick={() => startConversation(conn._id)}
+                                              onClick={() => startConversation(conn.authId, conn.role || 'alumni')}
                                             className="mt-2 text-xs font-medium text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
                                         >
                                             <MessageSquare size={12}/> Message

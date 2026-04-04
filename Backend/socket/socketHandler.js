@@ -3,6 +3,7 @@ const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const Student = require('../models/student');
 const Alumni = require('../models/alumni');
+const { areUsersConnected } = require('../middleware/connectionMiddleware');
 
 class SocketHandler {
     constructor(io) {
@@ -152,7 +153,17 @@ class SocketHandler {
                         socket.emit('error', { message: 'Not authorized to send messages in this conversation' });
                         return;
                     }
-
+                      // Verify strict connection
+                      const otherParticipant = conversation.participants.find(
+                          p => p.userId.toString() !== socket.user.id.toString()
+                      );
+                      if (otherParticipant) {
+                          const isConnected = await areUsersConnected(socket.user.id, otherParticipant.userId, socket.user.role, otherParticipant.role);
+                          if (!isConnected) {
+                              socket.emit('error', { message: 'You can no longer message this user. Connection requirement not met.' });
+                              return;
+                          }
+                      }
                     // Create message
                     const message = new Message({
                         conversationId,

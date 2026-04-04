@@ -969,7 +969,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
             case 'Messages': return <ChatSystem user={user} />;
-            case 'Network': return <NetworkPageWithBackend user={user} />;
+            case 'Network': return <NetworkPageWithBackend user={user} setActivePage={setActivePage} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
             default: return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;

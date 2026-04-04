@@ -98,46 +98,43 @@ async function areUsersConnected(user1Id, user2Id, user1Role, user2Role) {
 
         // Example implementation options:
         
-        // Option 1: Check if users are from same college
-        const user1 = user1Role === 'student' 
-            ? await Student.findById(user1Id).select('collegeName')
-            : await Alumni.findById(user1Id).select('collegeName');
-        
-        const user2 = user2Role === 'student'
-            ? await Student.findById(user2Id).select('collegeName')
-            : await Alumni.findById(user2Id).select('collegeName');
-
-        if (!user1 || !user2) {
-            return false;
+        let u1, u2;
+        if (user1Role === 'student') {
+            u1 = await Student.findOne({ authId: user1Id });
+        } else {
+            u1 = await Alumni.findOne({ authId: user1Id });
         }
 
-        // Allow chat if same college
-        if (user1.collegeName === user2.collegeName) {
-            return true;
+        if (user2Role === 'student') {
+            u2 = await Student.findOne({ authId: user2Id });
+        } else {
+            u2 = await Alumni.findOne({ authId: user2Id });
         }
 
-        // Option 2: Check for accepted connection requests (if you have a Connection model)
-        // const Connection = require('../models/Connection');
-        // const connection = await Connection.findOne({
-        //     $or: [
-        //         { requester: user1Id, recipient: user2Id, status: 'accepted' },
-        //         { requester: user2Id, recipient: user1Id, status: 'accepted' }
-        //     ]
-        // });
-        // return !!connection;
+        if (!u1 || !u2) return false;
+
+        // Alumni to Alumni connection
+        if (user1Role === 'alumni' && user2Role === 'alumni') {
+            // Check if they are in each other's connections array
+            if (u1.connections && (u1.connections.includes(u2._id) || u2.connections.includes(u1._id))) {
+                return true;
+            }
+        } 
+        // Alumni and Student connection
+        else if (user1Role === 'alumni' && user2Role === 'student') {
+            if (u1.followers && u1.followers.includes(u2._id)) {
+                return true;
+            }
+        } 
+        // Student and Alumni connection
+        else if (user1Role === 'student' && user2Role === 'alumni') {
+            if (u2.followers && u2.followers.includes(u1._id)) {
+                return true;
+            }
+        }
 
         // Option 3: Check if users are in same events
-        // const Event = require('../models/Event');
-        // const sharedEvents = await Event.find({
-        //     $and: [
-        //         { 'participants.userId': user1Id },
-        //         { 'participants.userId': user2Id }
-        //     ]
-        // });
-        // return sharedEvents.length > 0;
-
-        // Option 4: Allow all verified users (current implementation)
-        return true;
+        return false;
 
     } catch (error) {
         console.error('Error checking user connection:', error);

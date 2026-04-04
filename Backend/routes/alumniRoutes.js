@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Alumni = require('../models/alumni');
+const Student = require('../models/student');
 const authMiddleware = require('../middleware/authMiddleware');
 const multer = require('multer');
 const xlsx = require('xlsx');
@@ -448,9 +449,32 @@ router.get('/search', authMiddleware, async (req, res) => {
             query.graduatingYear = parseInt(graduationYear);
         }
 
-        // Exclude current alumni from search results
-        if (req.user && req.user.role === 'alumni') {
-            query.authId = { $ne: req.user.id };
+        // Exclude already connected/requested alumni
+        if (req.user) {
+            if (req.user.role === 'alumni') {
+                const profile = await Alumni.findOne({ authId: req.user.id });
+                if (profile) {
+                    query._id = { 
+                        $nin: [
+                            profile._id,
+                            ...(profile.connections || []),
+                            ...(profile.connectionRequests || [])
+                        ] 
+                    };
+                    query.connectionRequests = { $ne: profile._id };
+                } else {
+                    query.authId = { $ne: req.user.id };
+                }
+            } else if (req.user.role === 'student') {
+                const profile = await Student.findOne({ authId: req.user.id });
+                if (profile) {
+                    const following = profile.following || [];
+                    if (following.length > 0) {
+                        query._id = { $nin: following };
+                    }
+                    query.followerRequests = { $ne: profile._id };
+                }
+            }
         }
 
         const alumni = await Alumni.find(query)
@@ -653,12 +677,20 @@ router.post('/connect/reject', authMiddleware, async (req, res) => {
 router.get('/pending-requests', authMiddleware, async (req, res) => {
     try {
         const currentUserId = req.user.id;
+        const role = req.user.role;
+        
+        if (role === 'student') {
+            // Students only request to follow alumni, they don't receive requests
+            // Let's just return empty arrays.
+            return res.json({ connectionRequests: [], followerRequests: [] });
+        }
+
         const currentUserProfile = await Alumni.findOne({ authId: currentUserId })
             .populate({ path: 'connectionRequests', select: 'name profilePicture company position' })
             .populate({ path: 'followerRequests', select: 'name profilePicture course collegeName' });
-            
+
         if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
-        
+
         res.json({
             connectionRequests: currentUserProfile.connectionRequests,
             followerRequests: currentUserProfile.followerRequests
@@ -673,13 +705,28 @@ router.get('/pending-requests', authMiddleware, async (req, res) => {
 router.get('/my-connections', authMiddleware, async (req, res) => {
     try {
         const currentUserId = req.user.id;
-        const currentUserProfile = await Alumni.findOne({ authId: currentUserId })
-            .populate({ path: 'connections', select: 'name profilePicture company position location industry' });
+        const role = req.user.role;
+        let currentUserProfile;
+
+        if (role === 'student') {
+            currentUserProfile = await Student.findOne({ authId: currentUserId });
+            if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
             
+            const followedAlumni = await Alumni.find({ followers: currentUserProfile._id })
+                .select('authId role name profilePicture company position location industry');
+            
+            return res.json({ connections: followedAlumni });
+        } else {
+            currentUserProfile = await Alumni.findOne({ authId: currentUserId })
+                .populate({ path: 'connections', select: 'authId role name profilePicture company position location industry' })
+                .populate({ path: 'followers', select: 'authId role name profilePicture collegeName' });
+        }
+
         if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
-        
+
         res.json({
-            connections: currentUserProfile.connections
+            connections: currentUserProfile.connections || [],
+            followers: currentUserProfile.followers || []
         });
     } catch (err) {
         console.error('Get connections error:', err.message);
