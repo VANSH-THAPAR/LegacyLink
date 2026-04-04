@@ -7,6 +7,7 @@ const Student = require('../models/student');
 const Alumni = require('../models/alumni');
 const University = require('../models/University');
 const Admin = require('../models/Admin');
+const VerificationRequest = require('../models/VerificationRequest');
 const AuthController = require('../controllers/authController');
 const cloudinary = require('../utils/cloudinary');
 
@@ -33,7 +34,7 @@ router.post('/signup', async (req, res) => {
         }
         
         // Check if email already exists in AuthUser
-        if (req.body.email) {
+        if (req.body.email && role !== 'alumni') {
             const existingAuthUser = await AuthUser.findOne({ email: req.body.email });
             if (existingAuthUser) {
                 return res.status(400).json({ msg: 'A user with this email already exists.' });
@@ -41,7 +42,7 @@ router.post('/signup', async (req, res) => {
         }
         
         // Check if roll number already exists in AuthUser
-        if (req.body.rollNumber) {
+        if (req.body.rollNumber && role !== 'alumni') {
             const existingRollUser = await AuthUser.findOne({ rollNumber: req.body.rollNumber });
             if (existingRollUser) {
                 return res.status(400).json({ msg: 'A user with this roll number already exists.' });
@@ -70,8 +71,47 @@ router.post('/signup', async (req, res) => {
             }
         }
         
+        let idProofUploadUrl = '';
+        if (role === 'alumni') {
+            if (!req.body.idProof) {
+                return res.status(400).json({ msg: 'ID Proof (University ID or Degree Image) is required for Alumni registration.' });
+            }
+            try {
+                const uploadedProof = await cloudinary.uploader.upload(req.body.idProof, {
+                    folder: "legacylink_id_proofs",
+                    resource_type: "image",
+                });
+                idProofUploadUrl = uploadedProof.secure_url;
+            } catch (uploadError) {
+                console.error("Cloudinary Upload Error:", uploadError);
+                return res.status(500).json({ msg: 'ID Proof could not be uploaded.' });
+            }
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
+
+        // If alumni, do not register immediately, create a Verification Request
+        if (role === 'alumni') {
+            const verificationRequest = new VerificationRequest({
+                userModel: 'Alumni',
+                name: req.body.name,
+                type: 'Alumni Registration',
+                avatar: imageUrl,
+                status: 'pending',
+                isRegistration: true,
+                registrationData: {
+                    ...req.body,
+                    profilePicture: imageUrl, // Save resolved URL
+                    hashedPassword
+                },
+                idProofUrl: idProofUploadUrl
+            });
+            await verificationRequest.save();
+
+            console.log(`Created alumni registration request for ${req.body.name}`);
+            return res.status(201).json({ msg: 'Registration request sent to university. Pending approval.' });
+        }
 
         // Create AuthUser first
         const authUserData = {

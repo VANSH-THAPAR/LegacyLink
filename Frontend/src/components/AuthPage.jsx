@@ -11,11 +11,12 @@ const AuthPage = ({ setUser }) => {
     const initialRole = location.state?.initialRole || 'student';
 
     const [isLogin, setIsLogin] = useState(true);
-    const [formData, setFormData] = useState({ profilePicture: '' });
+    const [formData, setFormData] = useState({ profilePicture: '', idProof: '' });
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef(null);
+    const idProofRef = useRef(null);
 
     const handleInputChange = useCallback((e) => {
         const { name, value } = e.target;
@@ -26,7 +27,16 @@ const AuthPage = ({ setUser }) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => setFormData({ ...formData, profilePicture: reader.result }); // Base64 for upload
+            reader.onloadend = () => setFormData(prev => ({ ...prev, profilePicture: reader.result })); // Base64 for upload
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleIdProofChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setFormData(prev => ({ ...prev, idProof: reader.result })); // Base64 for upload
             reader.readAsDataURL(file);
         }
     };
@@ -81,9 +91,9 @@ const AuthPage = ({ setUser }) => {
                 const route = data.user.role === 'university' ? '/university-dashboard' : `/${data.user.role}`;
                 navigate(route, { replace: true });
             } else {
-                setMessage('Signup successful! Please login.');
+                setMessage(data.msg || 'Signup successful! Please login.');
                 setIsLogin(true);
-                setFormData({ profilePicture: '' });
+                setFormData({ profilePicture: '', idProof: '' });
             }
         } catch (err) {
             clearTimeout(timeoutId);
@@ -125,7 +135,7 @@ const AuthPage = ({ setUser }) => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isLogin 
                             ? <LoginFields onChange={handleInputChange} /> 
-                            : <SignupFields role={initialRole} formData={formData} onFileChange={handleFileChange} onInputChange={handleInputChange} fileInputRef={fileInputRef} config={currentConfig} />
+                            : <SignupFields role={initialRole} formData={formData} onFileChange={handleFileChange} onIdProofChange={handleIdProofChange} onInputChange={handleInputChange} fileInputRef={fileInputRef} idProofRef={idProofRef} config={currentConfig} />
                         }
                         <button 
                             type="submit" 
@@ -160,7 +170,7 @@ const LoginFields = ({ onChange }) => (
     </>
 );
 
-const SignupFields = ({ role, formData, onFileChange, onInputChange, fileInputRef, config }) => (
+const SignupFields = ({ role, formData, onFileChange, onIdProofChange, onInputChange, fileInputRef, idProofRef, config }) => (
     <>
         {(role === 'student' || role === 'alumni') && (
             <div className="flex justify-center -mt-2 mb-4">
@@ -185,6 +195,20 @@ const SignupFields = ({ role, formData, onFileChange, onInputChange, fileInputRe
                 <InputField name="collegeName" type="text" placeholder="College Name" Icon={Building} onChange={onInputChange} required />
                 <InputField name="rollNumber" type="text" placeholder="College Roll Number" Icon={Hash} onChange={onInputChange} required />
                 <YearField name="graduatingYear" placeholder="Graduating Year" Icon={GraduationCap} onChange={onInputChange} required />
+                
+                {role === 'alumni' && (
+                    <div className="relative border border-slate-300 rounded-lg p-3 bg-slate-50">
+                        <p className="text-sm text-slate-500 mb-2">Upload ID Proof (University ID or Degree Image)</p>
+                        <input
+                            type="file"
+                            ref={idProofRef}
+                            onChange={onIdProofChange}
+                            accept="image/*"
+                            required
+                            className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                        />
+                    </div>
+                )}
             </>
         )}
         <InputField name="password" type="password" placeholder="Password" Icon={Lock} onChange={onInputChange} required />

@@ -224,6 +224,11 @@ const UniversityDashboard = () => {
                                         <div className="ml-3 flex-grow">
                                             <p className="font-medium text-sm text-slate-800">{req.name}</p>
                                             <p className="text-xs text-slate-500">{req.type}</p>
+                                            {req.idProofUrl && (
+                                                <a href={req.idProofUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline mt-1 inline-block">
+                                                    View ID Proof
+                                                </a>
+                                            )}
                                         </div>
                                         <div className="flex space-x-2 ml-auto">
                                             <button 
