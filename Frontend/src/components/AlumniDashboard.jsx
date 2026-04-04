@@ -202,10 +202,12 @@ const AlumniDashboardPage = ({ alumni = {}, setActivePage }) => {
     const profileData = alumni.profile || alumni;
     
     // Set default values if properties are missing
-    const menteesCount = alumni.mentees || profileData.mentees || 0;
-    const connectionsCount = alumni.connections || profileData.connections || 0;
-    const profileViewsCount = alumni.profileViews || profileData.profileViews || 0;
+    const getCount = (value) => Array.isArray(value) ? value.length : (value || 0);
     
+    const menteesCount = getCount(alumni.mentees || profileData.mentees);
+    const connectionsCount = getCount(alumni.connections || profileData.connections);
+    const profileViewsCount = getCount(alumni.profileViews || profileData.profileViews);
+
     // Calculate actual profile completion percentage
     const calculateProfileCompletion = (user) => {
         const requiredFields = [
@@ -295,16 +297,22 @@ const AlumniDashboardPage = ({ alumni = {}, setActivePage }) => {
             <div className="lg:col-span-2 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
-                        { title: 'My Mentees', value: menteesCount, Icon: Users, color: 'cyan' },
-                        { title: 'My Connections', value: connectionsCount, Icon: Link, color: 'sky' },
-                        { title: 'Profile Views', value: profileViewsCount, Icon: User, color: 'blue' }
+                        { title: 'My Mentees', value: menteesCount, Icon: Users, color: 'cyan', clickable: false },
+                        { title: 'My Connections', value: connectionsCount, Icon: Link, color: 'sky', clickable: true },
+                        { title: 'Profile Views', value: profileViewsCount, Icon: User, color: 'blue', clickable: false }
                     ].map((stat, i) => (
                         <motion.div 
                             key={stat.title}
+                            onClick={() => {
+                                if (stat.clickable) {
+                                    localStorage.setItem('networkInitialTab', 'connections');
+                                    setActivePage('Network');
+                                }
+                            }}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 * i }}
-                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all"
+                            className={`bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all ${stat.clickable ? 'cursor-pointer' : ''}`}
                         >
                             <div className={`p-3 rounded-full w-fit bg-${stat.color}-100 text-${stat.color}-600 mb-4`}>
                                 <stat.Icon />
@@ -969,7 +977,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
             case 'Messages': return <ChatSystem user={user} />;
-            case 'Network': return <NetworkPageWithBackend user={user} />;
+            case 'Network': return <NetworkPageWithBackend user={user} setActivePage={setActivePage} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
             case 'Profile': return <ProfilePage alumni={user} setUser={setUser} />;
             default: return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;

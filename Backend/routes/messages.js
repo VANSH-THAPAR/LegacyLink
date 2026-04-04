@@ -13,7 +13,7 @@ const {
 
 // Conversation endpoints
 router.get('/conversations', auth, chatController.getConversations);
-router.post('/start-conversation', auth, chatController.startConversation);
+router.post('/start-conversation', auth, checkConnection, chatController.startConversation);
 router.get('/search-users', auth, chatController.searchUsers);
 
 // Message endpoints

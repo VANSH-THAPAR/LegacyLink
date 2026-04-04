@@ -106,7 +106,10 @@ const studentSchema = new mongoose.Schema({
     mentorshipRequests: {
         type: Number,
         default: 0
-    }
+    },
+
+    // Social/Professional
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' }]
 }, {
     timestamps: true
 });

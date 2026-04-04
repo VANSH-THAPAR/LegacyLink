@@ -17,6 +17,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import ChatSystem from './ChatSystem';
+import NetworkPageWithBackend from './NetworkPageWithBackend';
 import StudentEventsDisplay from './StudentEventsDisplay';
 
 // --- Mock Data (Replace with API calls) ---
@@ -628,26 +629,20 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
     switch (activePage) {
       case "Find Mentors":
         return (
-          <FindMentorsPage
-            onEventClick={handleEventClick}
-            onMentorClick={handleMentorClick}
-          />
-        );
-      case "Search Events":
-        return <StudentEventsDisplay />;
-      case "Messages":
-        return <ChatSystem user={user} />;
-      case "Profile":
-        return <ProfilePage student={user} setUser={setUser} />;
-      case "Support":
-        return <SupportPage user={user} />;
-      default:
-        return (
-          <FindMentorsPage
-            onEventClick={handleEventClick}
-            onMentorClick={handleMentorClick}
-          />
-        );
+            <NetworkPageWithBackend user={user} setActivePage={setActivePage} />
+          );
+        case "Search Events":
+          return <StudentEventsDisplay />;
+        case "Messages":
+          return <ChatSystem user={user} />;
+        case "Profile":
+          return <ProfilePage student={user} setUser={setUser} />;
+        case "Support":
+          return <SupportPage user={user} />;
+        default:
+          return (
+            <NetworkPageWithBackend user={user} setActivePage={setActivePage} />
+          );
     }
   };
 

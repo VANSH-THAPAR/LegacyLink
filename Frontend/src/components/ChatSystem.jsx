@@ -610,7 +610,7 @@ const ChatSystem = ({ user }) => {
             </div>
 
             {/* Messages Area */}
-            <div className="w-2/3 flex flex-col">
+            <div className="w-2/3 flex flex-col h-full bg-white relative overflow-hidden">
                 {selectedConversation ? (
                     <>
                         {/* Header */}
@@ -650,7 +650,7 @@ const ChatSystem = ({ user }) => {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-grow p-6 bg-slate-50/50 overflow-y-auto">
+                        <div className="flex-1 p-6 bg-slate-50/50 overflow-y-auto min-h-0">
                             {messages.length === 0 ? (
                                 <div className="text-center text-slate-500 mt-8">
                                     <MessageCircle className="w-16 h-16 mx-auto mb-4 text-slate-300" />

@@ -259,6 +259,9 @@ exports.searchUsers = async (req, res) => {
     }
 };
 
+// Add import at the top
+const { areUsersConnected } = require('../middleware/connectionMiddleware');
+
 // Send message via HTTP (fallback for Socket.IO)
 exports.sendMessage = async (req, res) => {
     try {
@@ -282,6 +285,17 @@ exports.sendMessage = async (req, res) => {
 
         if (!isParticipant) {
             return res.status(403).json({ msg: 'Not authorized to send messages in this conversation' });
+        }
+
+        // Verify strict connection
+        const otherParticipant = conversation.participants.find(
+            p => p.userId.toString() !== currentUserId.toString()
+        );
+        if (otherParticipant) {
+            const isConnected = await areUsersConnected(currentUserId, otherParticipant.userId, currentUserRole, otherParticipant.role);
+            if (!isConnected) {
+                return res.status(403).json({ msg: 'You can no longer message this user. Connection requirement not met.' });
+            }
         }
 
         // Create message

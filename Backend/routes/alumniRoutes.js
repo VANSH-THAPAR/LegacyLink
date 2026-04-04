@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Alumni = require('../models/alumni');
+const Student = require('../models/student');
 const authMiddleware = require('../middleware/authMiddleware');
 const multer = require('multer');
 const xlsx = require('xlsx');
@@ -447,7 +448,35 @@ router.get('/search', authMiddleware, async (req, res) => {
         if (graduationYear) {
             query.graduatingYear = parseInt(graduationYear);
         }
-        
+
+        // Exclude already connected/requested alumni
+        if (req.user) {
+            if (req.user.role === 'alumni') {
+                const profile = await Alumni.findOne({ authId: req.user.id });
+                if (profile) {
+                    query._id = { 
+                        $nin: [
+                            profile._id,
+                            ...(profile.connections || []),
+                            ...(profile.connectionRequests || [])
+                        ] 
+                    };
+                    query.connectionRequests = { $ne: profile._id };
+                } else {
+                    query.authId = { $ne: req.user.id };
+                }
+            } else if (req.user.role === 'student') {
+                const profile = await Student.findOne({ authId: req.user.id });
+                if (profile) {
+                    const following = profile.following || [];
+                    if (following.length > 0) {
+                        query._id = { $nin: following };
+                    }
+                    query.followerRequests = { $ne: profile._id };
+                }
+            }
+        }
+
         const alumni = await Alumni.find(query)
             .select('-password')
             .limit(parseInt(limit))
@@ -515,6 +544,192 @@ router.post('/mentorship-request', authMiddleware, async (req, res) => {
         });
     } catch (err) {
         console.error('Mentorship request error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [POST] /api/alumni/connect - Send connection or follow request
+router.post('/connect', authMiddleware, async (req, res) => {
+    try {
+        const { alumniId } = req.body;
+        const senderId = req.user.id;
+        const senderRole = req.user.role;
+
+        if (!alumniId) {
+            return res.status(400).json({ msg: 'Alumni ID is required' });
+        }
+        
+        if (senderRole !== 'alumni' && senderRole !== 'student') {
+            return res.status(403).json({ msg: 'Not authorized to send request' });
+        }
+
+        const targetAlumni = await Alumni.findById(alumniId);
+        if (!targetAlumni) {
+            return res.status(404).json({ msg: 'Target alumni not found' });
+        }
+
+        if (senderRole === 'alumni') {
+            const senderProfile = await Alumni.findOne({ authId: senderId });
+            if (!senderProfile) return res.status(404).json({ msg: 'Sender not found' });
+            
+            // Check if already connected or requested
+            if (targetAlumni.connections.includes(senderProfile._id) || targetAlumni.connectionRequests.includes(senderProfile._id)) {
+                return res.status(400).json({ msg: 'Already connected or request pending' });
+            }
+            
+            targetAlumni.connectionRequests.push(senderProfile._id);
+            await targetAlumni.save();
+        } else if (senderRole === 'student') {
+            const senderProfile = await Student.findOne({ authId: senderId });
+            if (!senderProfile) return res.status(404).json({ msg: 'Sender not found' });
+            
+            // Check if already followed or requested
+            if (targetAlumni.followers.includes(senderProfile._id) || targetAlumni.followerRequests.includes(senderProfile._id)) {
+                return res.status(400).json({ msg: 'Already following or request pending' });
+            }
+            
+            targetAlumni.followerRequests.push(senderProfile._id);
+            await targetAlumni.save();
+        }
+
+        res.json({ msg: 'Request sent successfully' });
+    } catch (err) {
+        console.error('Connection request error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [POST] /api/alumni/connect/accept - Accept connection or follow request
+router.post('/connect/accept', authMiddleware, async (req, res) => {
+    try {
+        const { requesterId, type } = req.body; // type is 'alumni' or 'student'
+        const currentUserId = req.user.id;
+
+        const currentUserProfile = await Alumni.findOne({ authId: currentUserId });
+        if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+
+        if (type === 'alumni') {
+            // Requester is Alumni
+            const requesterProfile = await Alumni.findById(requesterId);
+            if (!requesterProfile) return res.status(404).json({ msg: 'Requester not found' });
+
+            // Remove from requests, add to connections
+            currentUserProfile.connectionRequests = currentUserProfile.connectionRequests.filter(id => id.toString() !== requesterId);
+            if (!currentUserProfile.connections.includes(requesterId)) {
+                currentUserProfile.connections.push(requesterId);
+            }
+            if (!requesterProfile.connections.includes(currentUserProfile._id)) {
+                requesterProfile.connections.push(currentUserProfile._id);
+            }
+            
+            await currentUserProfile.save();
+            await requesterProfile.save();
+            
+        } else if (type === 'student') {
+            // Requester is Student
+            const requesterProfile = await Student.findById(requesterId);
+            if (!requesterProfile) return res.status(404).json({ msg: 'Requester not found' });
+
+            // Remove from requests, add to followers
+            currentUserProfile.followerRequests = currentUserProfile.followerRequests.filter(id => id.toString() !== requesterId);
+            if (!currentUserProfile.followers.includes(requesterId)) {
+                currentUserProfile.followers.push(requesterId);
+            }
+            if (!requesterProfile.following.includes(currentUserProfile._id)) {
+                requesterProfile.following.push(currentUserProfile._id);
+            }
+            
+            await currentUserProfile.save();
+            await requesterProfile.save();
+        }
+
+        res.json({ msg: 'Request accepted' });
+    } catch (err) {
+        console.error('Accept request error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [POST] /api/alumni/connect/reject - Reject connection or follow request
+router.post('/connect/reject', authMiddleware, async (req, res) => {
+    try {
+        const { requesterId, type } = req.body;
+        const currentUserId = req.user.id;
+
+        const currentUserProfile = await Alumni.findOne({ authId: currentUserId });
+        if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+
+        if (type === 'alumni') {
+            currentUserProfile.connectionRequests = currentUserProfile.connectionRequests.filter(id => id.toString() !== requesterId);
+        } else if (type === 'student') {
+            currentUserProfile.followerRequests = currentUserProfile.followerRequests.filter(id => id.toString() !== requesterId);
+        }
+
+        await currentUserProfile.save();
+        res.json({ msg: 'Request rejected' });
+    } catch (err) {
+        console.error('Reject request error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [GET] /api/alumni/pending-requests - Get pending connection and follow requests
+router.get('/pending-requests', authMiddleware, async (req, res) => {
+    try {
+        const currentUserId = req.user.id;
+        const role = req.user.role;
+        
+        if (role === 'student') {
+            // Students only request to follow alumni, they don't receive requests
+            // Let's just return empty arrays.
+            return res.json({ connectionRequests: [], followerRequests: [] });
+        }
+
+        const currentUserProfile = await Alumni.findOne({ authId: currentUserId })
+            .populate({ path: 'connectionRequests', select: 'name profilePicture company position' })
+            .populate({ path: 'followerRequests', select: 'name profilePicture course collegeName' });
+
+        if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+
+        res.json({
+            connectionRequests: currentUserProfile.connectionRequests,
+            followerRequests: currentUserProfile.followerRequests
+        });
+    } catch (err) {
+        console.error('Get pending requests error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [GET] /api/alumni/my-connections - Get established connections
+router.get('/my-connections', authMiddleware, async (req, res) => {
+    try {
+        const currentUserId = req.user.id;
+        const role = req.user.role;
+        let currentUserProfile;
+
+        if (role === 'student') {
+            currentUserProfile = await Student.findOne({ authId: currentUserId });
+            if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+            
+            const followedAlumni = await Alumni.find({ followers: currentUserProfile._id })
+                .select('authId role name profilePicture company position location industry');
+            
+            return res.json({ connections: followedAlumni });
+        } else {
+            currentUserProfile = await Alumni.findOne({ authId: currentUserId })
+                .populate({ path: 'connections', select: 'authId role name profilePicture company position location industry' })
+                .populate({ path: 'followers', select: 'authId role name profilePicture collegeName' });
+        }
+
+        if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+
+        res.json({
+            connections: currentUserProfile.connections || [],
+            followers: currentUserProfile.followers || []
+        });
+    } catch (err) {
+        console.error('Get connections error:', err.message);
         res.status(500).send('Server Error');
     }
 });
