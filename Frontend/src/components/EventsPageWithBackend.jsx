@@ -118,86 +118,145 @@ const EventsPageWithBackend = ({ user }) => {
                     <div className="text-slate-500">Loading events...</div>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {events.length === 0 ? (
-                        <div className="col-span-full text-center py-12 text-slate-500">
-                            No events found matching your criteria.
+                <div className="space-y-8">
+                    {/* Upcoming Events Section */}
+                    <div>
+                        <h3 className="text-2xl font-bold text-slate-800 mb-6">Upcoming Events</h3>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {events.filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0))).length === 0 ? (
+                                <div className="col-span-full text-center py-12 text-slate-500">
+                                    No upcoming events found matching your criteria.
+                                </div>
+                            ) : (
+                                events.filter(e => new Date(e.date) >= new Date(new Date().setHours(0,0,0,0))).map((event, i) => (
+                                    <motion.div
+                                        key={event._id}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.1 * i }}
+                                        className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all"
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-bold text-slate-800 mb-2">
+                                                    {event.title}
+                                                </h3>
+                                                <p className="text-slate-600 text-sm mb-3 line-clamp-2">
+                                                    {event.description}
+                                                </p>
+                                            </div>
+                                            <span className="bg-cyan-100 text-cyan-700 text-xs font-semibold px-3 py-1 rounded-full ml-4">
+                                                {event.type}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                <Calendar size={16}/>
+                                                {new Date(event.date).toLocaleDateString('en-US', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </div>
+                                            {event.time && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <Clock size={16}/>
+                                                    {event.time}
+                                                </div>
+                                            )}
+                                            {event.location && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <MapPin size={16}/>
+                                                    {event.location}
+                                                </div>
+                                            )}
+                                            {event.attendees && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <Users size={16}/>
+                                                    {event.attendees} attendees
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            {registeredEvents.includes(event._id) ? (
+                                                <button
+                                                    disabled
+                                                    className="flex-1 bg-green-100 text-green-700 font-semibold py-2 px-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2"
+                                                >
+                                                    <Check size={16}/> Registered
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => registerForEvent(event._id)}
+                                                    className="flex-1 bg-cyan-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors"
+                                                >
+                                                    Register
+                                                </button>
+                                            )}
+                                            <button className="bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors">
+                                                Details
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                ))
+                            )}
                         </div>
-                    ) : (
-                        events.map((event, i) => (
-                            <motion.div 
-                                key={event._id}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * i }}
-                                className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all"
-                            >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex-1">
-                                        <h3 className="text-xl font-bold text-slate-800 mb-2">
-                                            {event.title}
-                                        </h3>
-                                        <p className="text-slate-600 text-sm mb-3 line-clamp-2">
-                                            {event.description}
-                                        </p>
-                                    </div>
-                                    <span className="bg-cyan-100 text-cyan-700 text-xs font-semibold px-3 py-1 rounded-full ml-4">
-                                        {event.type}
-                                    </span>
-                                </div>
+                    </div>
 
-                                <div className="space-y-2 mb-4">
-                                    <div className="flex items-center gap-2 text-sm text-slate-500">
-                                        <Calendar size={16}/>
-                                        {new Date(event.date).toLocaleDateString('en-US', {
-                                            weekday: 'long',
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                        })}
-                                    </div>
-                                    {event.time && (
-                                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                                            <Clock size={16}/>
-                                            {event.time}
+                    {/* Past Events Section */}
+                    {events.filter(e => new Date(e.date) < new Date(new Date().setHours(0,0,0,0))).length > 0 && (
+                        <div className="mt-12 opacity-75 grayscale-[30%]">
+                            <h3 className="text-2xl font-bold text-slate-600 mb-6">Past Events</h3>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {events.filter(e => new Date(e.date) < new Date(new Date().setHours(0,0,0,0))).map((event, i) => (
+                                    <div
+                                        key={event._id}
+                                        className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm"
+                                    >
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-bold text-slate-700 mb-2">
+                                                    {event.title}
+                                                </h3>
+                                                <p className="text-slate-500 text-sm mb-3 line-clamp-2">
+                                                    {event.description}
+                                                </p>
+                                            </div>
+                                            <span className="bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-1 rounded-full ml-4">
+                                                {event.type}
+                                            </span>
                                         </div>
-                                    )}
-                                    {event.location && (
-                                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                                            <MapPin size={16}/>
-                                            {event.location}
-                                        </div>
-                                    )}
-                                    {event.attendees && (
-                                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                                            <Users size={16}/>
-                                            {event.attendees} attendees
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="flex gap-3">
-                                    {registeredEvents.includes(event._id) ? (
-                                        <button 
-                                            disabled
-                                            className="flex-1 bg-green-100 text-green-700 font-semibold py-2 px-4 rounded-lg cursor-not-allowed flex items-center justify-center gap-2"
-                                        >
-                                            <Check size={16}/> Registered
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            onClick={() => registerForEvent(event._id)}
-                                            className="flex-1 bg-cyan-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-cyan-700 transition-colors"
-                                        >
-                                            Register
-                                        </button>
-                                    )}
-                                    <button className="bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors">
-                                        Details
-                                    </button>
-                                </div>
-                            </motion.div>
-                        ))
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                <Calendar size={16}/>
+                                                {new Date(event.date).toLocaleDateString('en-US', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
+                                                })}
+                                            </div>
+                                            {event.time && (
+                                                <div className="flex items-center gap-2 text-sm text-slate-500">
+                                                    <Clock size={16}/>
+                                                    {event.time}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            <button disabled className="flex-1 bg-slate-200 text-slate-500 font-semibold py-2 px-4 rounded-lg cursor-not-allowed">
+                                                Event Ended
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </div>
             )}

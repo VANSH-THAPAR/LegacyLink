@@ -150,7 +150,11 @@ const alumniSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    
+    score: {
+        type: Number,
+        default: 0
+    },
+
     // Connections & Followers
     connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' }],
     connectionRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Alumni' }],

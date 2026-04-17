@@ -19,6 +19,7 @@ import {
 import ChatSystem from './ChatSystem';
 import NetworkPageWithBackend from './NetworkPageWithBackend';
 import StudentEventsDisplay from './StudentEventsDisplay';
+import Leaderboard from './Leaderboard';
 
 // --- Mock Data (Replace with API calls) ---
 const mockMentors = [
@@ -630,8 +631,12 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
       case "Find Mentors":
         return (
             <NetworkPageWithBackend user={user} setActivePage={setActivePage} />
-          );
-        case "Search Events":
+          );      case "Leaderboard":
+        return (
+          <div className="p-6">
+            <Leaderboard />
+          </div>
+        );        case "Search Events":
           return <StudentEventsDisplay />;
         case "Messages":
           return <ChatSystem user={user} />;
@@ -658,6 +663,12 @@ const StudentDashboard = ({ user, handleLogout, setUser }) => {
             <h1 className="text-2xl font-bold">LegacyLink</h1>
           </a>
           <nav className="mt-8 flex flex-col gap-3">
+            <SidebarLink
+              icon={Star}
+              text="Leaderboard"
+              active={activePage === "Leaderboard"}
+              onClick={() => setActivePage("Leaderboard")}
+            />
             <SidebarLink
               icon={Compass}
               text="Find Mentors"

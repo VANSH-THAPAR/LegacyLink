@@ -617,9 +617,11 @@ router.post('/connect/accept', authMiddleware, async (req, res) => {
             currentUserProfile.connectionRequests = currentUserProfile.connectionRequests.filter(id => id.toString() !== requesterId);
             if (!currentUserProfile.connections.includes(requesterId)) {
                 currentUserProfile.connections.push(requesterId);
+                currentUserProfile.score = (currentUserProfile.score || 0) + 1;
             }
             if (!requesterProfile.connections.includes(currentUserProfile._id)) {
                 requesterProfile.connections.push(currentUserProfile._id);
+                requesterProfile.score = (requesterProfile.score || 0) + 1;
             }
             
             await currentUserProfile.save();
@@ -634,6 +636,7 @@ router.post('/connect/accept', authMiddleware, async (req, res) => {
             currentUserProfile.followerRequests = currentUserProfile.followerRequests.filter(id => id.toString() !== requesterId);
             if (!currentUserProfile.followers.includes(requesterId)) {
                 currentUserProfile.followers.push(requesterId);
+                currentUserProfile.score = (currentUserProfile.score || 0) + 1;
             }
             if (!requesterProfile.following.includes(currentUserProfile._id)) {
                 requesterProfile.following.push(currentUserProfile._id);
@@ -669,6 +672,60 @@ router.post('/connect/reject', authMiddleware, async (req, res) => {
         res.json({ msg: 'Request rejected' });
     } catch (err) {
         console.error('Reject request error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [DELETE] /api/alumni/disconnect/:targetId - Remove a connection or unfollow
+router.delete('/disconnect/:targetId', authMiddleware, async (req, res) => {
+    try {
+        const { targetId } = req.params;
+        const currentUserId = req.user.id;
+        const role = req.user.role;
+
+        let currentUserProfile;
+        
+        if (role === 'student') {
+            currentUserProfile = await Student.findOne({ authId: currentUserId });
+            if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+            
+            const targetProfile = await Alumni.findById(targetId);
+            if (!targetProfile) return res.status(404).json({ msg: 'Target not found' });
+
+            // Remove from following array on student
+            currentUserProfile.following = currentUserProfile.following.filter(id => id.toString() !== targetId);
+            // Remove from followers array on alumni
+            targetProfile.followers = targetProfile.followers.filter(id => id.toString() !== currentUserProfile._id.toString());
+            
+            await currentUserProfile.save();
+            await targetProfile.save();
+        } else {
+            currentUserProfile = await Alumni.findOne({ authId: currentUserId });
+            if (!currentUserProfile) return res.status(404).json({ msg: 'Profile not found' });
+            
+            // Check if the target is an alumni or a student. We can query both.
+            let targetProfile = await Alumni.findById(targetId);
+            if (targetProfile) {
+                currentUserProfile.connections = currentUserProfile.connections.filter(id => id.toString() !== targetId);
+                targetProfile.connections = targetProfile.connections.filter(id => id.toString() !== currentUserProfile._id.toString());
+                
+                await currentUserProfile.save();
+                await targetProfile.save();
+            } else {
+                targetProfile = await Student.findById(targetId);
+                if (!targetProfile) return res.status(404).json({ msg: 'Target not found' });
+                
+                // If it's a student, remove from followers and following
+                currentUserProfile.followers = currentUserProfile.followers.filter(id => id.toString() !== targetId);
+                targetProfile.following = targetProfile.following.filter(id => id.toString() !== currentUserProfile._id.toString());
+                
+                await currentUserProfile.save();
+                await targetProfile.save();
+            }
+        }
+        res.json({ msg: 'Disconnected successfully' });
+    } catch (err) {
+        console.error('Disconnect error:', err.message);
         res.status(500).send('Server Error');
     }
 });
@@ -730,6 +787,22 @@ router.get('/my-connections', authMiddleware, async (req, res) => {
         });
     } catch (err) {
         console.error('Get connections error:', err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// [GET] /api/alumni/leaderboard
+// Get alumni leaderboard sorted by score
+router.get('/leaderboard', authMiddleware, async (req, res) => {
+    try {
+        const leaderboard = await Alumni.find({ role: 'alumni' })
+            .select('name profilePicture company position engagementScore score role')
+            .sort({ score: -1 })
+            .limit(10); // Show top 10
+        
+        res.json(leaderboard);
+    } catch (err) {
+        console.error('Leaderboard error:', err.message);
         res.status(500).send('Server Error');
     }
 });
