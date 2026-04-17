@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import UniversityEventApproval from '../components/UniversityEventApproval';
+import Leaderboard from '../components/Leaderboard';
 
 // --- Icon Components for a clean, professional look ---
 
@@ -265,11 +266,16 @@ const UniversityDashboard = () => {
                     <UniversityEventApproval />
                 </div>
 
-                {/* --- Additional Analytics Section --- */}
-                <div className='grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10'>
-                    
-                    {/* --- Degree Programs Distribution --- */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm">
+                  {/* --- Alumni Leaderboard Section --- */}
+                  <div className="mt-10">
+                      <Leaderboard />
+                  </div>
+
+                  {/* --- Additional Analytics Section --- */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
+
+                      {/* --- Degree Programs Distribution --- */}
+                      <div className="bg-white p-6 rounded-2xl shadow-sm">
                         <h2 className="text-xl font-semibold text-slate-800 mb-4">Top Degree Programs</h2>
                         <div className="h-64">
                             {stats?.alumniByProgram?.length > 0 ? (

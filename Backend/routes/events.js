@@ -417,4 +417,106 @@ router.get('/debug', authMiddleware, async (req, res) => {
     }
 });
 
+// [POST] /api/events/:id/register - Register for an event (Student Only)
+router.post('/:id/register', authMiddleware, async (req, res) => {
+    try {
+        if (req.user.role !== 'student') {
+            return res.status(403).json({ msg: 'Only students can register for events' });
+        }
+
+        const event = await Event.findById(req.params.id);
+        if (!event) return res.status(404).json({ msg: 'Event not found' });
+
+        const isRegistered = event.attendees.some(a => a.user.toString() === req.user.id);
+        if (isRegistered) {
+            return res.status(400).json({ msg: 'You are already registered for this event' });
+        }
+
+        if (event.currentAttendees >= event.maxAttendees) {
+            return res.status(400).json({ msg: 'Event is full' });
+        }
+
+        event.attendees.push({
+            user: req.user.id,
+            registeredAt: new Date(),
+            attended: true // marking as attended for now so they can give feedback and score
+        });
+        event.currentAttendees += 1;
+        await event.save();
+        
+        // Give alumni +100 score for a successful meeting (registration/attendance in this case)
+        const organizer = await Alumni.findById(event.organizer);
+        if (organizer) {
+            organizer.engagementScore += 100;
+            await organizer.save();
+        }
+
+        res.json({ message: 'Successfully registered for the event' });
+    } catch (err) {
+        console.error('Error registering:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// [POST] /api/events/:id/unregister - Unregister from an event
+router.post('/:id/unregister', authMiddleware, async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.id);
+        if (!event) return res.status(404).json({ msg: 'Event not found' });
+
+        const initialLength = event.attendees.length;
+        event.attendees = event.attendees.filter(a => a.user.toString() !== req.user.id);
+        
+        if (event.attendees.length < initialLength) {
+            event.currentAttendees -= 1;
+            await event.save();
+        }
+
+        res.json({ message: 'Successfully unregistered from the event' });
+    } catch (err) {
+        console.error('Error unregistering:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
+// [POST] /api/events/:id/feedback - Rate an event
+router.post('/:id/feedback', authMiddleware, async (req, res) => {
+    try {
+        const { rating, comment } = req.body;
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({ msg: 'Valid rating is required' });
+        }
+
+        const event = await Event.findById(req.params.id);
+        if (!event) return res.status(404).json({ msg: 'Event not found' });
+
+        const existingFeedback = event.feedback.find(f => f.user.toString() === req.user.id);
+        if (existingFeedback) {
+            return res.status(400).json({ msg: 'You have already rated this event' });
+        }
+
+        event.feedback.push({
+            user: req.user.id,
+            rating,
+            comment,
+            submittedAt: new Date()
+        });
+        await event.save();
+
+        const scoreAddition = rating * 10;
+        if (event.organizer) {
+            const organizer = await Alumni.findById(event.organizer);
+            if (organizer) {
+                organizer.engagementScore += scoreAddition;
+                await organizer.save();
+            }
+        }
+
+        res.json({ msg: 'Feedback submitted successfully' });
+    } catch (err) {
+        console.error('Error adding feedback:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
 module.exports = router;

@@ -1,0 +1,10 @@
+            currentUserProfile.connectionRequests = currentUserProfile.connectionRequests.filter(id => id.toString() !== requesterId);
+            if (!currentUserProfile.connections.includes(requesterId)) {
+                currentUserProfile.connections.push(requesterId);
+            }
+            if (!requesterProfile.connections.includes(currentUserProfile._id)) {
+                requesterProfile.connections.push(currentUserProfile._id);
+            }
+            
+            await currentUserProfile.save();
+            await requesterProfile.save();

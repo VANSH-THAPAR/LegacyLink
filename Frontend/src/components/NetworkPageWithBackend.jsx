@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MapPin, Building, Users, MessageSquare } from 'lucide-react';
+import { Search, MapPin, Building, Users, MessageSquare, UserMinus } from 'lucide-react';
+import Leaderboard from './Leaderboard';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -177,6 +178,27 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
         }
     };
 
+    const handleDisconnect = async (targetId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${API_URL}/alumni/disconnect/${targetId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                setMyConnections(prev => prev.filter(c => c._id !== targetId));
+            } else {
+                const data = await response.json();
+                alert(data.msg || 'Cannot remove connection');
+            }
+        } catch (error) {
+            console.error('Error removing connection:', error);
+        }
+    };
+
     const startConversation = async (userId, role) => {
         try {
             const token = localStorage.getItem('token');
@@ -237,6 +259,12 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
                                 )}
                         </button>
                     )}
+                    <button
+                        onClick={() => setActiveTab('leaderboard')}
+                        className={`px-4 py-2 font-medium rounded-lg whitespace-nowrap transition-colors flex items-center gap-2 ${activeTab === 'leaderboard' ? 'bg-cyan-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        Leaderboard
+                    </button>
                 </div>
             </div>
 
@@ -244,17 +272,17 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
                 <>
                     {/* Search and Filters */}
                     <div className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                        <input
-                            type="text"
-                            placeholder="Search alumni..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        />
-                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                                <input
+                                    type="text"
+                                    placeholder="Search alumni..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                />
+                            </div>
                     <select
                         value={filters.industry}
                         onChange={(e) => setFilters(prev => ({ ...prev, industry: e.target.value }))}
@@ -442,17 +470,35 @@ const NetworkPageWithBackend = ({ user, setActivePage }) => {
                                         <h4 className="font-bold text-slate-800 truncate">{conn.name}</h4>
                                         <p className="text-xs text-slate-500 truncate">{conn.position}</p>
                                         <p className="text-xs text-slate-500 truncate">{conn.company}</p>
-                                        <button 
-                                              onClick={() => startConversation(conn.authId, conn.role || 'alumni')}
-                                            className="mt-2 text-xs font-medium text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
-                                        >
-                                            <MessageSquare size={12}/> Message
-                                        </button>
+                                        <div className="flex items-center gap-4 mt-2">
+                                            <button 
+                                                onClick={() => startConversation(conn.authId, conn.role || 'alumni')}
+                                                className="text-xs font-medium text-cyan-600 hover:text-cyan-800 flex items-center gap-1"
+                                            >
+                                                <MessageSquare size={12}/> Message
+                                            </button>
+                                            <button 
+                                                onClick={() => {
+                                                    if (window.confirm('Are you sure you want to remove this connection?')) {
+                                                        handleDisconnect(conn._id);
+                                                    }
+                                                }}
+                                                className="text-xs font-medium text-red-500 hover:text-red-700 flex items-center gap-1"
+                                            >
+                                                <UserMinus size={12}/> {user?.role === 'student' ? 'Unfollow' : 'Remove'}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {activeTab === 'leaderboard' && (
+                <div className="mt-6">
+                    <Leaderboard />
                 </div>
             )}
         </motion.div>

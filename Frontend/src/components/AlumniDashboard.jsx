@@ -10,6 +10,7 @@ import NetworkPageWithBackend from './NetworkPageWithBackend';
 import EventsPageWithBackend from './EventsPageWithBackend';
 import OpportunitiesPage from './OpportunitiesPage';
 import EventCreationForm from './EventCreationForm';
+import Leaderboard from './Leaderboard';
 
 // --- ENHANCED HARDCODED DATA ---
 
@@ -976,6 +977,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
     const renderPage = () => {
         switch (activePage) {
             case 'Dashboard': return <AlumniDashboardPage alumni={user} setActivePage={setActivePage} />;
+            case 'Leaderboard': return <Leaderboard />;
             case 'Messages': return <ChatSystem user={user} />;
             case 'Network': return <NetworkPageWithBackend user={user} setActivePage={setActivePage} />;
             case 'Events': return <EventsPageWithBackend user={user} />;
@@ -993,6 +995,7 @@ const AlumniDashboard = ({ user, handleLogout, setUser }) => {
                 </a>
                 <nav className="mt-10 flex flex-col gap-3">
                     <SidebarLink icon={LayoutDashboard} text="Dashboard" active={activePage === 'Dashboard'} onClick={() => setActivePage('Dashboard')} />
+                    <SidebarLink icon={Award} text="Leaderboard" active={activePage === 'Leaderboard'} onClick={() => setActivePage('Leaderboard')} />
                     <SidebarLink icon={MessageSquare} text="Messages" active={activePage === 'Messages'} onClick={() => setActivePage('Messages')} />
                      <SidebarLink icon={Briefcase} text="Opportunities" active={activePage === 'Opportunities'} onClick={() => setActivePage('Opportunities')} />   
                     <SidebarLink icon={Users} text="Network" active={activePage === 'Network'} onClick={() => setActivePage('Network')} />
